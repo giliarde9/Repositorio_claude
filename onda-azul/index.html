@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Onda Azul - Mockup iPhone</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Moldura iPhone 16 Pro */
+    .iphone-shell {
+      box-shadow: 0 0 0 12px #1f2937, 0 0 0 14px #374151, 0 25px 60px -15px rgba(0, 0, 0, 0.85);
+      border-radius: 54px;
+    }
+
+    /* Container do Mapa Leaflet */
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #f8fafc;
+      z-index: 10;
+    }
+
+    .leaflet-control-zoom {
+      display: none !important;
+    }
+
+    /* Atribuição do mapa (exigida pelos termos do OpenStreetMap e da CARTO), discreta abaixo da barra de busca */
+    .leaflet-top.leaflet-right {
+      top: 158px;
+    }
+    .leaflet-control-attribution {
+      font-size: 8px !important;
+      line-height: 1.4;
+      background: rgba(15, 23, 42, 0.6) !important;
+      color: #94a3b8 !important;
+      border-radius: 6px 0 0 6px;
+    }
+    .leaflet-control-attribution a {
+      color: #67e8f9 !important;
+    }
+
+    /* Canvas procedural da Fumacinha / Nebulosa da Nuvem Azul.
+       Fica num pane do Leaflet entre os tiles e as linhas/marcadores, para não cobrir os pins. */
+    .cloud-smoke-canvas {
+      position: absolute;
+      pointer-events: none;
+      filter: blur(10px) contrast(140%) brightness(110%);
+      opacity: 0.85;
+      transition: opacity 0.4s ease;
+    }
+    .cloud-smoke-canvas.smoke-dark {
+      mix-blend-mode: screen;
+    }
+    .cloud-smoke-canvas.smoke-light {
+      opacity: 0.6;
+    }
+
+    /* Linhas animadas de indicação */
+    @keyframes lineFlow {
+      to {
+        stroke-dashoffset: -32;
+      }
+    }
+
+    .referral-path {
+      stroke-dasharray: 6, 6;
+      animation: lineFlow 1.2s linear infinite;
+      cursor: pointer;
+    }
+
+    /* Efeito de Vidro iOS */
+    .glass-ios {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    /* Animação suave para Bottom Sheet */
+    #bottomSheet {
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Scrollbar personalizada fina */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+    }
+
+    /* Pills horizontais com scroll escondido */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-6 select-none">
+
+  <!-- Barra Superior Externa de Controle (Desktop) -->
+  <header class="w-full max-w-4xl flex items-center justify-between mb-4 px-3">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+        <i class="fa-solid fa-water text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold text-white flex items-center gap-2">
+          Onda Azul <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Névoa Clusterizada + Perfis Ricos</span>
+        </h1>
+        <p class="text-xs text-slate-400">6 Capitais & Polos • Nuvem Fumaça Orgânica • Rede de Conexões</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Alternar Tema do Mapa -->
+      <button onclick="toggleMapTheme()" id="btnMapTheme" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-cyan-300 font-medium transition border border-slate-700 flex items-center gap-1.5">
+        <i class="fa-solid fa-moon text-blue-400" id="themeIcon"></i>
+        <span id="themeLabel">Modo Claro</span>
+      </button>
+
+      <!-- Alternar Moldura -->
+      <button onclick="togglePhoneFrame()" id="frameToggleBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium transition border border-slate-700 flex items-center gap-1.5">
+        <i class="fa-solid fa-mobile-screen"></i>
+        <span>Moldura</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Moldura iPhone 16 Pro -->
+  <main id="phoneContainer" class="relative w-[390px] h-[835px] max-w-full iphone-shell bg-black overflow-hidden flex flex-col border-[3px] border-slate-700/60 shadow-2xl transition-all duration-300">
+    <div class="relative w-full h-full flex flex-col bg-slate-900 overflow-hidden rounded-[44px]">
+
+      <!-- iOS Status Bar & Dynamic Island -->
+      <div class="absolute top-0 left-0 right-0 z-40 px-7 pt-3 pb-1 flex justify-between items-center text-white pointer-events-none text-xs font-semibold">
+        <span id="currentTime" class="tracking-tight text-[13px] font-semibold text-slate-200">09:41</span>
+
+        <!-- Dynamic Island -->
+        <div class="w-28 h-6 bg-black rounded-full flex items-center justify-between px-2.5 pointer-events-auto border border-white/10 shadow">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span class="text-[9px] text-cyan-300 font-medium">Onda Azul</span>
+          </div>
+          <i class="fa-solid fa-wave-square text-[9px] text-cyan-400"></i>
+        </div>
+
+        <div class="flex items-center gap-1.5 text-xs text-slate-200">
+          <i class="fa-solid fa-signal text-[10px]"></i>
+          <span class="text-[10px] font-bold">5G</span>
+          <i class="fa-solid fa-battery-full text-sm"></i>
+        </div>
+      </div>
+
+      <!-- Barra Superior Flutuante: Busca de Cidades + Carrossel de Polos + Filtros -->
+      <div class="absolute top-11 left-0 right-0 z-30 px-3.5 space-y-1.5 pointer-events-none">
+
+        <!-- Input de Busca Híbrida (Cidades ou Pessoas/Empresas) -->
+        <div class="glass-ios rounded-2xl px-3 py-1.5 flex items-center gap-2 shadow-xl border border-cyan-500/30 pointer-events-auto">
+          <i class="fa-solid fa-magnifying-glass text-cyan-400 text-xs"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Buscar cidade, empresa, serviço ou pessoa..."
+            class="w-full bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none"
+            oninput="handleSearch(this.value)"
+            onkeydown="if(event.key === 'Enter') handleSearchEnter(this.value)"
+          />
+          <button onclick="resetSearch()" class="text-slate-400 hover:text-white text-xs p-1">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Carrossel de Cidades Principais (Quick-Pills) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 pointer-events-auto" id="cityPillsContainer">
+          <!-- Gerado dinamicamente via JS -->
+        </div>
+
+        <!-- Seletor Mapa / Lista e Filtros -->
+        <div class="flex items-center justify-between gap-1 pointer-events-auto pt-0.5">
+          <!-- Alternador Mapa / Lista -->
+          <div class="glass-ios p-0.5 rounded-xl flex items-center gap-1 border border-cyan-500/20">
+            <button onclick="setViewMode('map')" id="btnViewMap" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 flex items-center gap-1 transition">
+              <i class="fa-solid fa-map"></i> Mapa
+            </button>
+            <button onclick="setViewMode('list')" id="btnViewList" class="px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-white flex items-center gap-1 transition">
+              <i class="fa-solid fa-list-ul"></i> Lista (<span id="totalBadgeCount">0</span>)
+            </button>
+          </div>
+
+          <!-- Filtros de Entidade -->
+          <div class="glass-ios p-0.5 rounded-xl flex items-center gap-1 border border-cyan-500/20">
+            <button onclick="setFilter('all')" id="btnFilterAll" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 transition">
+              Todos
+            </button>
+            <button onclick="setFilter('company')" id="btnFilterComp" class="px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-cyan-400 transition" title="Apenas Empresas">
+              <i class="fa-solid fa-building text-[9px]"></i>
+            </button>
+            <button onclick="setFilter('people')" id="btnFilterPeople" class="px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-blue-400 transition" title="Apenas Pessoas">
+              <i class="fa-solid fa-user text-[9px]"></i>
+            </button>
+            <button onclick="fitCurrentCityMarkers()" class="px-2 py-0.5 rounded-lg text-[10px] font-medium text-cyan-300 hover:bg-slate-800 transition" title="Enquadrar cidade atual">
+              <i class="fa-solid fa-expand text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MAPA LEAFLET COM NÉVOA AZUL ORGÂNICA PROCEDURAL -->
+      <div id="mapViewContainer" class="w-full h-full relative">
+        <div id="map"></div>
+        <!-- O canvas da névoa é criado via JS dentro de um pane do Leaflet (ver setupSmokeCanvas) -->
+      </div>
+
+      <!-- MODO LISTA COMPLETA -->
+      <div id="listViewContainer" class="hidden absolute inset-0 pt-32 pb-20 px-3 bg-slate-950 z-25 overflow-y-auto space-y-2">
+        <div class="flex items-center justify-between pb-1 border-b border-slate-800">
+          <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Membros e Empresas da Onda</h3>
+          <span id="listRegionIndicator" class="text-[10px] text-slate-400">São Paulo, SP</span>
+        </div>
+        <div id="listItemsWrapper" class="space-y-2">
+          <!-- Preenchido via JS -->
+        </div>
+      </div>
+
+      <!-- GAVETA DE DETALHES RICA (BOTTOM SHEET EXPANSÍVEL) -->
+      <div id="bottomSheet" class="absolute bottom-16 left-0 right-0 z-30 glass-ios rounded-t-[30px] border-t border-cyan-500/40 p-3.5 transform translate-y-[72%] transition-all duration-300 flex flex-col shadow-2xl max-h-[68%]">
+        <!-- Puxador -->
+        <div onclick="toggleBottomSheet()" class="w-full flex flex-col items-center cursor-pointer pb-2">
+          <div class="w-10 h-1 bg-slate-500/50 rounded-full"></div>
+        </div>
+
+        <!-- Cabeçalho Principal do Perfil -->
+        <div class="flex items-start justify-between mb-2.5 cursor-pointer" onclick="toggleBottomSheet()">
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <div id="sheetAvatar" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-extrabold text-base shadow-lg flex-shrink-0 border border-white/20">
+              <i class="fa-solid fa-water"></i>
+            </div>
+            <div class="overflow-hidden">
+              <div class="flex items-center gap-1.5">
+                <h3 id="sheetTitle" class="text-xs font-bold text-white truncate max-w-[170px]">Hub Geral Onda Azul</h3>
+                <span id="sheetBadge" class="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 whitespace-nowrap">
+                  <i class="fa-solid fa-certificate text-[7px] mr-1"></i>Verificado
+                </span>
+              </div>
+              <p id="sheetRole" class="text-[10px] text-cyan-300 font-semibold truncate max-w-[200px]">Comunidade Onda Azul</p>
+              <p id="sheetSubtitle" class="text-[9px] text-slate-400 truncate max-w-[200px]">Selecione um membro para explorar</p>
+            </div>
+          </div>
+
+          <!-- Botão Seguir / Ação Superior Rápida -->
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button id="btnFollow" onclick="toggleFollow(event)" class="px-2.5 py-1 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] flex items-center gap-1 shadow-md transition">
+              <i class="fa-solid fa-user-plus text-[9px]"></i>
+              <span id="followLabel">Seguir</span>
+            </button>
+            <button class="text-slate-400 p-1">
+              <i id="sheetChevron" class="fa-solid fa-chevron-up text-xs transition-transform duration-300"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Corpo Ricos com Bio, Serviços, Botão Fazer Negócio e Linhagem -->
+        <div class="space-y-2.5 overflow-y-auto pr-1 text-xs">
+
+          <!-- Bio & O que faz -->
+          <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1">
+                <i class="fa-solid fa-circle-info text-[8px]"></i> Sobre & Ramo de Atuação
+              </span>
+              <span id="sheetOndaScore" class="text-[9px] font-bold text-emerald-400 px-1.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800">
+                Score Onda 99
+              </span>
+            </div>
+            <p id="sheetBio" class="text-[11px] text-slate-200 leading-relaxed">
+              Explore membros, parceiros de negócios e indicações no ecossistema de alta confiança da Onda Azul.
+            </p>
+          </div>
+
+          <!-- Serviços / Produtos Oferecidos + Catálogo -->
+          <div id="servicesSection" class="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              <i class="fa-solid fa-cube text-[8px] text-cyan-400"></i> Soluções, Produtos & Serviços
+            </span>
+            <div id="servicesTags" class="flex flex-wrap gap-1">
+              <!-- Gerado via JS -->
+            </div>
+          </div>
+
+          <!-- Card: Quem Indicou (Indicador) -->
+          <div id="referrerBox" class="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs">
+            <!-- Gerado via JS -->
+          </div>
+
+          <!-- Card: Quem este perfil indicou -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Membros Indicados (<span id="invitedCount" class="text-cyan-400">0</span>)</span>
+              <span class="text-[9px] text-emerald-400 font-semibold"><i class="fa-solid fa-arrow-trend-up mr-1"></i>Expansão da Onda</span>
+            </div>
+            <div id="invitedList" class="space-y-1.5">
+              <!-- Gerado via JS -->
+            </div>
+          </div>
+
+          <!-- Ação Principal Dupla: Comprar / Fazer Negócio + Focar no Mapa -->
+          <div class="pt-1 grid grid-cols-2 gap-2">
+            <button onclick="handleBusinessAction()" class="py-2 px-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-[11px] shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-handshake"></i>
+              <span>Fazer Negócio</span>
+            </button>
+            <button onclick="handleLocateOnMap()" class="py-2 px-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-[11px] shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-location-crosshairs"></i>
+              <span>Focar no Mapa</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Barra de Navegação Inferior (Estilo iOS) -->
+      <div class="absolute bottom-0 left-0 right-0 z-40 h-16 bg-slate-950/95 backdrop-blur-md border-t border-slate-800/80 px-6 flex justify-around items-center">
+        <button onclick="setViewMode('map')" class="flex flex-col items-center gap-1 text-cyan-400">
+          <i class="fa-solid fa-map-location-dot text-base"></i>
+          <span class="text-[9px] font-semibold">Mapa</span>
+        </button>
+        <button onclick="setViewMode('list')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition">
+          <i class="fa-solid fa-users text-base"></i>
+          <span class="text-[9px] font-medium">Membros</span>
+        </button>
+        <button onclick="showSimpleToast('Modo Fumacinha Orgânica Ativo!')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition">
+          <i class="fa-solid fa-smog text-base"></i>
+          <span class="text-[9px] font-medium">Névoa</span>
+        </button>
+        <button onclick="showSimpleToast('Seu Perfil Conectado na Onda Azul')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition">
+          <i class="fa-solid fa-user-circle text-base"></i>
+          <span class="text-[9px] font-medium">Você</span>
+        </button>
+      </div>
+
+      <!-- Barra Home do iPhone -->
+      <div class="absolute bottom-1 left-0 right-0 z-50 flex justify-center pointer-events-none">
+        <div class="w-32 h-1 bg-white/40 rounded-full"></div>
+      </div>
+
+      <!-- Toast Flutuante iOS -->
+      <div id="iosToast" class="absolute top-28 left-5 right-5 z-50 glass-ios rounded-2xl p-2.5 border border-cyan-500/40 flex items-center gap-2.5 shadow-2xl opacity-0 -translate-y-4 pointer-events-none transition-all duration-300">
+        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-xs">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <p id="toastMessage" class="text-xs font-semibold text-white truncate">Mensagem</p>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // --- 1. BANCO DE DADOS DAS CIDADES PRINCIPAIS ---
+    const citiesConfig = [
+      { id: 'sp', name: 'São Paulo', state: 'SP', center: [-23.5780, -46.6750], zoom: 13 },
+      { id: 'rj', name: 'Rio de Janeiro', state: 'RJ', center: [-22.9550, -43.1950], zoom: 13 },
+      { id: 'cwb', name: 'Curitiba', state: 'PR', center: [-25.4350, -49.2750], zoom: 13 },
+      { id: 'bh', name: 'Belo Horizonte', state: 'MG', center: [-19.9320, -43.9380], zoom: 13 },
+      { id: 'fln', name: 'Florianópolis', state: 'SC', center: [-27.5920, -48.5300], zoom: 13 },
+      { id: 'cpq', name: 'Campinas', state: 'SP', center: [-22.9050, -47.0600], zoom: 13 }
+    ];
+
+    // --- 2. BANCO DE DADOS RICO DE EMPRESAS E PESSOAS (COM RELAÇÃO DE INDICAÇÃO, BIO E PRODUTOS) ---
+    const membersData = [
+      // === SÃO PAULO ===
+      {
+        id: 1,
+        cityId: 'sp',
+        type: 'company',
+        name: 'NuvemTech Cloud & IA',
+        initials: 'NT',
+        category: 'Deep Tech & IA Corporativa',
+        roleOrBio: 'Pioneira em migração de infraestruturas críticas e agentes autônomos de inteligência artificial generativa para grandes empresas.',
+        services: ['Arquitetura Multicloud', 'IA Generativa B2B', 'Governança & FinOps'],
+        region: 'Av. Paulista',
+        lat: -23.5615,
+        lng: -46.6560,
+        address: 'Av. Paulista, 1070 - Bela Vista',
+        indicadoPorId: null,
+        score: 99
+      },
+      {
+        id: 2,
+        cityId: 'sp',
+        type: 'company',
+        name: 'Alpha Finanças Azuis',
+        initials: 'AF',
+        category: 'Fintech & Crédito Estruturado',
+        roleOrBio: 'Ecossistema de liquidez e antecipação de recebíveis para negócios que operam com soluções sustentáveis e corporativas.',
+        services: ['Linhas de Crédito Verde', 'Plataforma B2B Pay', 'Custódia Digital'],
+        region: 'Faria Lima',
+        lat: -23.5860,
+        lng: -46.6820,
+        address: 'Av. Faria Lima, 3477 - Itaim Bibi',
+        indicadoPorId: 1,
+        score: 96
+      },
+      {
+        id: 3,
+        cityId: 'sp',
+        type: 'company',
+        name: 'Vanguard Hub Inovação',
+        initials: 'VG',
+        category: 'Hub & Coworking Tecnológico',
+        roleOrBio: 'Espaço de fomento, aceleração e conexões estratégicas reunindo mais de 80 startups de alto impacto.',
+        services: ['Locação de Espaços Premium', 'Programas de Aceleração', 'Rodadas de Investimento'],
+        region: 'Pinheiros',
+        lat: -23.5670,
+        lng: -46.6930,
+        address: 'Rua dos Pinheiros, 610 - Pinheiros',
+        indicadoPorId: null,
+        score: 97
+      },
+      {
+        id: 4,
+        cityId: 'sp',
+        type: 'company',
+        name: 'CyberOnda Defesas Digitais',
+        initials: 'CO',
+        category: 'Cibersegurança & LGPD',
+        roleOrBio: 'Monitoramento 24/7 de ameaças cibernéticas, blindagem de endpoints e conformidade de privacidade de dados.',
+        services: ['SOC Gerenciado 24/7', 'Pentest Contínuo', 'Auditoria LGPD & ISO 27001'],
+        region: 'Vila Olímpia',
+        lat: -23.5980,
+        lng: -46.6905,
+        address: 'Rua Funchal, 200 - Vila Olímpia',
+        indicadoPorId: 2,
+        score: 93
+      },
+      {
+        id: 5,
+        cityId: 'sp',
+        type: 'company',
+        name: 'Berrini Venture Builders',
+        initials: 'BV',
+        category: 'Venture Capital & M&A',
+        roleOrBio: 'Aceleração corporativa e capital paciente para fundadores técnicos construindo o futuro da produtividade.',
+        services: ['Captação Seed & Série A', 'Mentoria de Fundadores', 'Conexão Corporativa'],
+        region: 'Berrini',
+        lat: -23.6095,
+        lng: -46.6975,
+        address: 'Av. Luís Carlos Berrini, 1200 - Brooklin',
+        indicadoPorId: 3,
+        score: 95
+      },
+      {
+        id: 101,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Rodrigo Medeiros',
+        initials: 'RM',
+        category: 'Empreendedor & Arquiteto Cloud',
+        roleOrBio: 'Especialista em microsserviços distribuídos e cofundador de 2 startups adquiridas. Mentor da Onda Azul para arquiteturas escaláveis.',
+        services: ['Consultoria de Arquitetura de Nuvem', 'Workshops de IA', 'Mentoria 1-on-1'],
+        region: 'Jardins',
+        lat: -23.5570,
+        lng: -46.6610,
+        address: 'Al. Santos / Jardins',
+        indicadoPorId: 1,
+        score: 98
+      },
+      {
+        id: 102,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Beatriz Vasconcelos',
+        initials: 'BV',
+        category: 'Head de Growth & Expansão',
+        roleOrBio: 'Estrategista de aquisição orgânica e expansão internacional com passagens por unicórnios do ecossistema latino.',
+        services: ['Estratégia de Go-to-Market', 'Auditoria de Funil B2B', 'Palestras de Expansão'],
+        region: 'Paraíso',
+        lat: -23.5645,
+        lng: -46.6520,
+        address: 'Rua Vergueiro, 900 - Paraíso',
+        indicadoPorId: 1,
+        score: 94
+      },
+      {
+        id: 103,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Felipe Alencar',
+        initials: 'FA',
+        category: 'Investidor Anjo & Conselheiro',
+        roleOrBio: 'Investidor em estágio inicial com tese em SaaS B2B, automação industrial e impacto positivo na Onda Azul.',
+        services: ['Smart Money para Startups', 'Governança Corporativa', 'Networking Estratégico'],
+        region: 'Itaim Bibi',
+        lat: -23.5890,
+        lng: -46.6800,
+        address: 'Rua Joaquim Floriano - Itaim',
+        indicadoPorId: 2,
+        score: 96
+      },
+      {
+        id: 104,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Camila Mendonça',
+        initials: 'CM',
+        category: 'Product Designer Lead',
+        roleOrBio: 'Designer apaixonada por criar interfaces intuitivas, sistemas de design escaláveis e protótipos de altíssima conversão.',
+        services: ['Design System Figma', 'Testes de Usabilidade', 'Redesign de Apps'],
+        region: 'Pinheiros',
+        lat: -23.5620,
+        lng: -46.6880,
+        address: 'Rua Fradique Coutinho - Pinheiros',
+        indicadoPorId: 3,
+        score: 91
+      },
+      {
+        id: 105,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Lucas Brandão',
+        initials: 'LB',
+        category: 'CTO & Pesquisador de IA',
+        roleOrBio: 'Mestre pela USP, lidera equipes de engenharia com foco em LLMs proprietários e agentes integrados a ERPs.',
+        services: ['Desenvolvimento de Modelos IA', 'Code Review & Segurança', 'Treinamento de Equipes'],
+        region: 'Vila Madalena',
+        lat: -23.5540,
+        lng: -46.6950,
+        address: 'Rua Harmonia, 300 - Vila Madalena',
+        indicadoPorId: 3,
+        score: 93
+      },
+      {
+        id: 106,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Débora Silveira',
+        initials: 'DS',
+        category: 'Especialista em Compliance & LGPD',
+        roleOrBio: 'Advogada e tecnóloga especializada em mitigar riscos regulatórios em transações digitais complexas.',
+        services: ['Adequação LGPD Express', 'Contratos de Software', 'DPO as a Service'],
+        region: 'Vila Olímpia',
+        lat: -23.6010,
+        lng: -46.6880,
+        address: 'Rua Gomes de Carvalho - Vila Olímpia',
+        indicadoPorId: 4,
+        score: 89
+      },
+      {
+        id: 107,
+        cityId: 'sp',
+        type: 'people',
+        name: 'Helena Fontes',
+        initials: 'HF',
+        category: 'Engenheira de Analytics & Dados',
+        roleOrBio: 'Transforma volumes gigantes de telemetria em painéis executivos acionáveis e modelos preditivos de receita.',
+        services: ['Pipelines Snowflake/dbt', 'Dashboards Executivos', 'Previsão de Churn'],
+        region: 'Consolação',
+        lat: -23.5510,
+        lng: -46.6590,
+        address: 'Rua da Consolação, 1500',
+        indicadoPorId: 101,
+        score: 92
+      },
+
+      // === RIO DE JANEIRO ===
+      {
+        id: 201,
+        cityId: 'rj',
+        type: 'company',
+        name: 'Carioca Blue Labs',
+        initials: 'CB',
+        category: 'Climatetech & Economia Azul',
+        roleOrBio: 'Desenvolve biossensores e monitoramento marinho via satélite para portos, marinas e conservação costeira.',
+        services: ['Monitoramento Ambiental Costeiro', 'Créditos de Carbono Azul', 'APIs de Clima Marinho'],
+        region: 'Porto Maravilha',
+        lat: -22.8980,
+        lng: -43.1880,
+        address: 'Av. Rodrigues Alves, 10 - Porto Maravilha',
+        indicadoPorId: null,
+        score: 98
+      },
+      {
+        id: 202,
+        cityId: 'rj',
+        type: 'company',
+        name: 'Solaris Energia Limpa',
+        initials: 'SE',
+        category: 'Transição Energética & Solar',
+        roleOrBio: 'Implantação de fazendas solares e usinas descentralizadas para indústrias e redes varejistas do RJ.',
+        services: ['Assinatura Solar B2B', 'Projetos Turnkey', 'Eficiência Energética'],
+        region: 'Botafogo',
+        lat: -22.9510,
+        lng: -43.1840,
+        address: 'Praia de Botafogo, 300 - Botafogo',
+        indicadoPorId: 201,
+        score: 95
+      },
+      {
+        id: 203,
+        cityId: 'rj',
+        type: 'people',
+        name: 'Marcio Barcellos',
+        initials: 'MB',
+        category: 'Empreendedor Marítimo & Oceanógrafo',
+        roleOrBio: 'Pioneiro em projetos de sustentabilidade oceânica e conselheiro da Onda Azul no polo Fluminense.',
+        services: ['Consultoria Oceanográfica', 'Palestras de Sustentabilidade', 'Modelagem Ambiental'],
+        region: 'Ipanema',
+        lat: -22.9840,
+        lng: -43.2040,
+        address: 'Rua Visconde de Pirajá - Ipanema',
+        indicadoPorId: 201,
+        score: 96
+      },
+      {
+        id: 204,
+        cityId: 'rj',
+        type: 'people',
+        name: 'Juliana Paes Leme',
+        initials: 'JP',
+        category: 'Diretora Criativa & Branding',
+        roleOrBio: 'Conecta grandes marcas a causas ambientais de impacto real através de campanhas audiovisuais premiadas.',
+        services: ['Identidade Visual', 'Campanhas ESG', 'Branded Content'],
+        region: 'Leblon',
+        lat: -22.9830,
+        lng: -43.2240,
+        address: 'Av. Ataulfo de Paiva - Leblon',
+        indicadoPorId: 202,
+        score: 92
+      },
+
+      // === CURITIBA ===
+      {
+        id: 301,
+        cityId: 'cwb',
+        type: 'company',
+        name: 'EcoLog Smart Mobility',
+        initials: 'EL',
+        category: 'Smart Cities & Mobilidade Elétrica',
+        roleOrBio: 'Frota de entrega urbana inteligente 100% elétrica integrada a hubs logísticos de bairro com emissão zero.',
+        services: ['Entregas Urbanas Last-Mile', 'Software de Roteirização IA', 'Aluguel de VUCs Elétricos'],
+        region: 'Batel',
+        lat: -25.4390,
+        lng: -49.2880,
+        address: 'Av. do Batel, 1550 - Batel',
+        indicadoPorId: null,
+        score: 97
+      },
+      {
+        id: 302,
+        cityId: 'cwb',
+        type: 'company',
+        name: 'Pinheiro Agrotech',
+        initials: 'PA',
+        category: 'Agtech & Bioinsumos',
+        roleOrBio: 'Pesquisa e produção de fertilizantes biológicos com base em microrganismos nativos para lavouras de alto rendimento.',
+        services: ['Bioinsumos Certificados', 'Análise de Solo por DNA', 'Manejo Sustentável'],
+        region: 'Centro Cívico',
+        lat: -25.4190,
+        lng: -49.2680,
+        address: 'Rua Cândido de Abreu - Centro Cívico',
+        indicadoPorId: 301,
+        score: 94
+      },
+      {
+        id: 303,
+        cityId: 'cwb',
+        type: 'people',
+        name: 'Tiago Siqueira',
+        initials: 'TS',
+        category: 'Engenheiro de Automação & IoT',
+        roleOrBio: 'Desenvolve sensores embarcados de baixíssimo consumo para frotas de transporte e estações de recarga rápida.',
+        services: ['Prototipagem de Hardware', 'Firmware Embarcado', 'Integração MQTT / AWS'],
+        region: 'Juvevê',
+        lat: -25.4140,
+        lng: -49.2610,
+        address: 'Rua Alberto Folloni - Juvevê',
+        indicadoPorId: 301,
+        score: 93
+      },
+
+      // === BELO HORIZONTE ===
+      {
+        id: 401,
+        cityId: 'bh',
+        type: 'company',
+        name: 'San Pedro Valley Ventures',
+        initials: 'SP',
+        category: 'Aceleradora de Startups',
+        roleOrBio: 'Berço das startups mais promissoras de Minas Gerais com rede de co-investimento internacional ativa.',
+        services: ['Aceleração de Negócios', 'Conexão com Mineradoras & Indústria', 'Sindicatos de Anjos'],
+        region: 'São Pedro',
+        lat: -19.9380,
+        lng: -43.9350,
+        address: 'Rua Major Lopes - São Pedro',
+        indicadoPorId: null,
+        score: 99
+      },
+      {
+        id: 402,
+        cityId: 'bh',
+        type: 'company',
+        name: 'BioMinas Tech',
+        initials: 'BM',
+        category: 'Biotecnologia & Saúde',
+        roleOrBio: 'Desenvolve diagnósticos moleculares ultrarrápidos e plataformas de triagem digital para laboratórios.',
+        services: ['Kits Diagnósticos Rápidos', 'Licenciamento de Patentes', 'P&D sob Demanda'],
+        region: 'Savassi',
+        lat: -19.9390,
+        lng: -43.9310,
+        address: 'Praça da Savassi - Savassi',
+        indicadoPorId: 401,
+        score: 95
+      },
+      {
+        id: 403,
+        cityId: 'bh',
+        type: 'people',
+        name: 'Larissa Drummond',
+        initials: 'LD',
+        category: 'Cofundadora & Especialista em EdTech',
+        roleOrBio: 'Eleita Forbes Under 30, capacitou mais de 15.000 jovens em programação e inteligência artificial no Brasil.',
+        services: ['Treinamentos Corporativos', 'Keynote Speaker', 'Consultoria Educacional'],
+        region: 'Lourdes',
+        lat: -19.9280,
+        lng: -43.9450,
+        address: 'Rua da Bahia - Lourdes',
+        indicadoPorId: 401,
+        score: 97
+      },
+
+      // === FLORIANÓPOLIS ===
+      {
+        id: 501,
+        cityId: 'fln',
+        type: 'company',
+        name: 'Ilha do Silício Softwares',
+        initials: 'IS',
+        category: 'SaaS Enterprise & Automação',
+        roleOrBio: 'Plataforma líder em automação de backoffice e esteiras contratuais para multinacionais no ecossistema de Floripa.',
+        services: ['SaaS de Gestão Contratual', 'Assinatura Eletrônica Segura', 'Webhooks & ERP Sync'],
+        region: 'Saco Grande',
+        lat: -27.5480,
+        lng: -48.5030,
+        address: 'Rodovia SC-401, KM 4 - Tecnópolis',
+        indicadoPorId: null,
+        score: 98
+      },
+      {
+        id: 502,
+        cityId: 'fln',
+        type: 'company',
+        name: 'Oceana Robotics',
+        initials: 'OR',
+        category: 'Robótica Submarina & Drones',
+        roleOrBio: 'Veículos autônomos para inspeção de estruturas submersas, parques eólicos offshore e cabos de fibra óptica.',
+        services: ['ROVs de Inspeção', 'Laudos Batimétricos 3D', 'Mapeamento Costeiro com Drone'],
+        region: 'Lagoa da Conceição',
+        lat: -27.6040,
+        lng: -48.4680,
+        address: 'Av. das Rendeiras - Lagoa da Conceição',
+        indicadoPorId: 501,
+        score: 96
+      },
+      {
+        id: 503,
+        cityId: 'fln',
+        type: 'people',
+        name: 'Gabriel Becker',
+        initials: 'GB',
+        category: 'Arquiteto de Sistemas Distribuídos',
+        roleOrBio: 'Focado em microsserviços em Rust e Go de altíssimo throughput. Entusiasta da vida à beira-mar e tecnologia de ponta.',
+        services: ['Consultoria de Performance Rust/Go', 'Otimização de Bancos PostgreSQL', 'Mentoria'],
+        region: 'Jurerê Internacional',
+        lat: -27.4410,
+        lng: -48.4980,
+        address: 'Al. das Palmeiras - Jurerê',
+        indicadoPorId: 501,
+        score: 94
+      },
+
+      // === CAMPINAS ===
+      {
+        id: 601,
+        cityId: 'cpq',
+        type: 'company',
+        name: 'Unicamp DeepTech Hub',
+        initials: 'UD',
+        category: 'Pesquisa & Semicondutores',
+        roleOrBio: 'Conexão entre centros acadêmicos de ponta e o polo de hardware, telecomunicações e nanotecnologia de Campinas.',
+        services: ['Transferência de Tecnologia', 'Laboratório Aberto de Prototipagem', 'Incubação de Spinoffs'],
+        region: 'Barão Geraldo',
+        lat: -22.8180,
+        lng: -47.0650,
+        address: 'Av. Albert Einstein - Barão Geraldo',
+        indicadoPorId: null,
+        score: 99
+      },
+      {
+        id: 602,
+        cityId: 'cpq',
+        type: 'company',
+        name: 'AgroDrones Campinas',
+        initials: 'AC',
+        category: 'Agtech & Sensoriamento Remoto',
+        roleOrBio: 'Pulverização de precisão e captura multiespectral de lavouras reduzindo o consumo de químicos em até 40%.',
+        services: ['Mapeamento com Câmera NDVI', 'Pulverização com Drones de Grande Porte', 'Relatórios Agronômicos'],
+        region: 'Cambuí',
+        lat: -22.8980,
+        lng: -47.0520,
+        address: 'Rua Coronel Quirino - Cambuí',
+        indicadoPorId: 601,
+        score: 95
+      },
+      {
+        id: 603,
+        cityId: 'cpq',
+        type: 'people',
+        name: 'Fernanda Prado',
+        initials: 'FP',
+        category: 'Pesquisadora & Doutora em Fotônica',
+        roleOrBio: 'Desenvolve biossensores ópticos para detecção precoce de pragas agrícolas e contaminação em água potável.',
+        services: ['Consultoria Óptica & Fotônica', 'Projetos Finep / Fapesp', 'Desenvolvimento de Sensores'],
+        region: 'Taquaral',
+        lat: -22.8750,
+        lng: -47.0500,
+        address: 'Av. Heitor Penteado - Taquaral',
+        indicadoPorId: 601,
+        score: 96
+      }
+    ];
+
+    // --- 3. ESTADOS GLOBAIS DA APLICAÇÃO ---
+    let map;
+    let baseTileLayer;
+    let linesGroup;
+    let markersGroup;
+    let isDarkMode = false;
+    let currentCityId = 'sp';
+    let currentFilter = 'all';
+    let selectedId = null;
+    let isSheetExpanded = false;
+    let searchQuery = ''; // Texto da busca: filtra lista e marcadores da cidade atual
+    const followedSet = new Set(); // Guarda IDs seguidos pelo usuário
+
+    // Animação da Névoa / Fumacinha Orgânica
+    let smokeCanvas;
+    let smokeCtx;
+    let smokeParticles = [];
+    let smokeAnimFrameId = null;
+    const smokeSeeds = new Map(); // Deslocamentos sorteados uma única vez por membro (névoa estável)
+    const smokeSprites = {};      // Gradientes pré-renderizados (evita criar um gradiente por partícula a cada frame)
+
+    // Helper: Pega membro por id
+    function getEntity(id) {
+      return membersData.find(m => m.id === id);
+    }
+
+    // Quem este membro indicou (derivado de indicadoPorId, única fonte da verdade)
+    function getIndicados(id) {
+      return membersData.filter(m => m.indicadoPorId === id);
+    }
+
+    // Escapa texto antes de inserir em innerHTML (dados de membros virão de cadastro)
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // Normaliza para busca: minúsculas e sem acentos ("Débora" == "debora")
+    function norm(value) {
+      return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+
+    function memberMatches(m, query) {
+      const q = norm(query);
+      if (!q) return true;
+      return [m.name, m.category, m.region, ...(m.services || [])].some(field => norm(field).includes(q));
+    }
+
+    // Membros da cidade atual que passam no filtro de tipo e na busca
+    function getVisibleMembers() {
+      return membersData.filter(m =>
+        m.cityId === currentCityId &&
+        (currentFilter === 'all' || m.type === currentFilter) &&
+        memberMatches(m, searchQuery)
+      );
+    }
+
+    // Pessoa física mostra só o bairro; endereço completo apenas para empresas
+    function getPublicLocation(item) {
+      return item.type === 'company' ? `${item.region} • ${item.address}` : item.region;
+    }
+
+    // --- 4. INICIALIZAÇÃO DA APLICAÇÃO ---
+    function initApp() {
+      renderCityPills();
+      initMap();
+      setupSmokeCanvas();
+      startSmokeLoop();
+      showDefaultSheet();
+      updateClock();
+      setInterval(updateClock, 30000);
+    }
+
+    // Renderiza Botões Rápidos de Capitais (Pills)
+    function renderCityPills() {
+      const container = document.getElementById('cityPillsContainer');
+      container.innerHTML = '';
+
+      citiesConfig.forEach(city => {
+        const isCurrent = city.id === currentCityId;
+        const count = membersData.filter(m => m.cityId === city.id).length;
+
+        const btn = document.createElement('button');
+        btn.id = `pill-${city.id}`;
+        btn.className = `px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition flex items-center gap-1.5 shadow ${
+          isCurrent
+            ? 'bg-cyan-500 text-slate-950 border border-cyan-400'
+            : 'bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80 hover:border-cyan-500/50'
+        }`;
+        btn.innerHTML = `
+          <span>${esc(city.name)}</span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded-full ${isCurrent ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-800 text-cyan-300'} font-extrabold">${count}</span>
+        `;
+        btn.onclick = () => switchCity(city.id);
+        container.appendChild(btn);
+      });
+    }
+
+    // Inicializa o Mapa Leaflet
+    function initMap() {
+      const currentCity = citiesConfig.find(c => c.id === currentCityId);
+
+      map = L.map('map', {
+        zoomControl: false
+      }).setView(currentCity.center, currentCity.zoom);
+      map.attributionControl.setPrefix(false).setPosition('topright');
+
+      // Base Cartográfica Minimalista Limpa
+      setMapTiles(false);
+
+      linesGroup = L.layerGroup().addTo(map);
+      markersGroup = L.layerGroup().addTo(map);
+
+      // Eventos para reposicionar a névoa ao mover/zoomar no mapa
+      map.on('move zoom', updateSmokePoints);
+      map.on('resize', handleCanvasResize);
+
+      // Carrega dados da cidade atual
+      loadCityData(currentCityId);
+    }
+
+    // Camada Minimalista de Ruas (CARTO Positron / Dark Matter)
+    function setMapTiles(dark) {
+      if (baseTileLayer) map.removeLayer(baseTileLayer);
+      const url = dark
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+      baseTileLayer = L.tileLayer(url, {
+        subdomains: 'abcd',
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>'
+      }).addTo(map);
+
+      if (smokeCanvas) {
+        smokeCanvas.classList.toggle('smoke-dark', dark);
+        smokeCanvas.classList.toggle('smoke-light', !dark);
+      }
+    }
+
+    function toggleMapTheme() {
+      isDarkMode = !isDarkMode;
+      setMapTiles(isDarkMode);
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      if (isDarkMode) {
+        icon.className = 'fa-solid fa-sun text-amber-400';
+        label.innerText = 'Modo Noturno';
+        showSimpleToast('Mapa no Modo Noturno CARTO');
+      } else {
+        icon.className = 'fa-solid fa-moon text-blue-400';
+        label.innerText = 'Modo Claro';
+        showSimpleToast('Mapa no Modo Claro Positron');
+      }
+      renderReferralLines();
+    }
+
+    // --- 5. TROCA DE CIDADE E BUSCA ---
+    function switchCity(cityId, customCoords = null, customName = null) {
+      currentCityId = cityId;
+      selectedId = null;
+      clearSearchInput();
+
+      // Atualiza pills visuais
+      citiesConfig.forEach(c => {
+        const pill = document.getElementById(`pill-${c.id}`);
+        if (pill) {
+          const isCurrent = c.id === cityId;
+          pill.className = `px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition flex items-center gap-1.5 shadow ${
+            isCurrent
+              ? 'bg-cyan-500 text-slate-950 border border-cyan-400'
+              : 'bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80 hover:border-cyan-500/50'
+          }`;
+        }
+      });
+
+      const city = citiesConfig.find(c => c.id === cityId);
+      const targetCenter = customCoords || (city ? city.center : [-23.5780, -46.6750]);
+      const targetZoom = city ? city.zoom : 13;
+
+      map.flyTo(targetCenter, targetZoom, {
+        animate: true,
+        duration: 0.9
+      });
+
+      loadCityData(cityId);
+      showDefaultSheet();
+      showSimpleToast(`Explorando ${customName || (city ? city.name : 'Cidade')}`);
+    }
+
+    function loadCityData(cityId) {
+      const city = citiesConfig.find(c => c.id === cityId);
+      document.getElementById('listRegionIndicator').innerText = city ? `${city.name}, ${city.state}` : 'Região Ativa';
+
+      renderMarkers();
+      renderReferralLines();
+      renderListMode();
+      updateSmokePoints();
+    }
+
+    function clearSearchInput() {
+      searchQuery = '';
+      document.getElementById('searchInput').value = '';
+    }
+
+    // --- 6. NÉVOA / FUMACINHA ORGÂNICA PROCEDURAL (CANVAS OVERLAY) ---
+    function setupSmokeCanvas() {
+      // Pane próprio entre os tiles (200) e as linhas (400) / marcadores (600)
+      const pane = map.createPane('nevoaPane');
+      pane.style.zIndex = 350;
+      pane.style.pointerEvents = 'none';
+
+      smokeCanvas = document.createElement('canvas');
+      smokeCanvas.className = `cloud-smoke-canvas ${isDarkMode ? 'smoke-dark' : 'smoke-light'}`;
+      pane.appendChild(smokeCanvas);
+      smokeCtx = smokeCanvas.getContext('2d');
+
+      smokeSprites.cyan = createSmokeSprite([[0, 'rgba(0, 242, 254, 0.95)'], [0.45, 'rgba(14, 165, 233, 0.5)'], [1, 'rgba(2, 132, 199, 0)']]);
+      smokeSprites.deepBlue = createSmokeSprite([[0, 'rgba(56, 189, 248, 0.8)'], [0.5, 'rgba(3, 105, 161, 0.4)'], [1, 'rgba(15, 23, 42, 0)']]);
+
+      handleCanvasResize();
+    }
+
+    function createSmokeSprite(stops) {
+      const size = 128;
+      const sprite = document.createElement('canvas');
+      sprite.width = sprite.height = size;
+      const ctx = sprite.getContext('2d');
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      stops.forEach(([offset, color]) => grad.addColorStop(offset, color));
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      return sprite;
+    }
+
+    function handleCanvasResize() {
+      if (!smokeCanvas || !map) return;
+      const size = map.getSize();
+      smokeCanvas.width = size.x;
+      smokeCanvas.height = size.y;
+      updateSmokePoints();
+    }
+
+    // Sorteia os "puffs" de cada membro uma única vez, para a névoa não pular ao mover o mapa
+    function getSmokeSeeds(item) {
+      if (!smokeSeeds.has(item.id)) {
+        const puffs = item.type === 'company' ? 6 : 4;
+        const seeds = [];
+        for (let i = 0; i < puffs; i++) {
+          seeds.push({
+            angle: (Math.PI * 2 / puffs) * i + Math.random() * 0.5,
+            dist: 15 + Math.random() * 55,
+            radius: 45 + Math.random() * 60,
+            alpha: 0.28 + Math.random() * 0.25,
+            phase: Math.random() * Math.PI * 2,
+            colorVariant: Math.random() > 0.4 ? 'cyan' : 'deepBlue'
+          });
+        }
+        smokeSeeds.set(item.id, seeds);
+      }
+      return smokeSeeds.get(item.id);
+    }
+
+    // Reprojeta os puffs dos membros visíveis para a posição atual do mapa
+    function updateSmokePoints() {
+      if (!map || !smokeCanvas) return;
+
+      // O pane acompanha o arrasto do mapa; o canvas é mantido alinhado ao canto da tela
+      L.DomUtil.setPosition(smokeCanvas, map.containerPointToLayerPoint([0, 0]));
+
+      smokeParticles = [];
+      getVisibleMembers().forEach(item => {
+        const point = map.latLngToContainerPoint([item.lat, item.lng]);
+        getSmokeSeeds(item).forEach(seed => {
+          smokeParticles.push({
+            ...seed,
+            baseX: point.x + Math.cos(seed.angle) * seed.dist,
+            baseY: point.y + Math.sin(seed.angle) * seed.dist
+          });
+        });
+      });
+    }
+
+    // Loop de Animação Suave da Fumacinha (pausado no modo lista)
+    let smokeTime = 0;
+    function startSmokeLoop() {
+      if (smokeAnimFrameId !== null || !smokeCtx) return;
+
+      function renderFrame() {
+        smokeTime += 0.02;
+        const t = smokeTime;
+        smokeCtx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
+
+        smokeParticles.forEach(p => {
+          // Movimento ondulatório fluido suave
+          const x = p.baseX + Math.sin(t * 0.8 + p.phase) * 12;
+          const y = p.baseY + Math.cos(t * 0.6 + p.phase) * 10;
+          smokeCtx.globalAlpha = p.alpha * (0.8 + 0.2 * Math.sin(t * 1.2 + p.phase));
+          smokeCtx.drawImage(smokeSprites[p.colorVariant], x - p.radius, y - p.radius, p.radius * 2, p.radius * 2);
+        });
+        smokeCtx.globalAlpha = 1;
+
+        smokeAnimFrameId = requestAnimationFrame(renderFrame);
+      }
+
+      renderFrame();
+    }
+
+    function stopSmokeLoop() {
+      if (smokeAnimFrameId !== null) {
+        cancelAnimationFrame(smokeAnimFrameId);
+        smokeAnimFrameId = null;
+      }
+    }
+
+    // --- 7. MARCADORES E REDE DE INDICAÇÕES VISUAL ---
+    function renderMarkers() {
+      markersGroup.clearLayers();
+
+      const cityMembers = getVisibleMembers();
+
+      cityMembers.forEach(item => {
+        const isSelected = selectedId === item.id;
+        const isComp = item.type === 'company';
+        const isFollowed = followedSet.has(item.id);
+        const numIndicados = getIndicados(item.id).length;
+
+        let markerHtml = '';
+
+        if (isComp) {
+          markerHtml = `
+            <div class="flex flex-col items-center cursor-pointer transition-all duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
+              <div class="relative">
+                ${isSelected ? '<div class="absolute -inset-2.5 bg-cyan-400 rounded-2xl blur-md animate-pulse opacity-95"></div>' : ''}
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-sky-600 to-cyan-400 border-2 border-white shadow-xl flex items-center justify-center text-white text-sm relative">
+                  <i class="fa-solid fa-building"></i>
+                  ${isFollowed ? '<span class="absolute -bottom-1 -left-1 w-3.5 h-3.5 rounded-full bg-cyan-400 text-slate-950 text-[8px] flex items-center justify-center border border-white font-bold"><i class="fa-solid fa-check text-[7px]"></i></span>' : ''}
+                </div>
+                ${numIndicados > 0 ? `
+                  <span class="absolute -top-1.5 -right-2 bg-emerald-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.2 rounded-full border border-white shadow">
+                    +${numIndicados}
+                  </span>
+                ` : ''}
+              </div>
+              <div class="mt-1 px-1.5 py-0.5 rounded-md bg-slate-950/95 text-[10px] font-bold text-white border border-cyan-500/50 shadow whitespace-nowrap max-w-[105px] truncate">
+                ${esc(item.name.split(' ')[0])}
+              </div>
+            </div>
+          `;
+        } else {
+          markerHtml = `
+            <div class="flex flex-col items-center cursor-pointer transition-all duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
+              <div class="relative">
+                ${isSelected ? '<div class="absolute -inset-2.5 bg-sky-400 rounded-full blur-md animate-pulse opacity-95"></div>' : ''}
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-800 border-2 border-white shadow-lg flex items-center justify-center text-white font-black text-[11px] tracking-tight relative">
+                  ${esc(item.initials)}
+                  ${isFollowed ? '<span class="absolute -bottom-1 -left-1 w-3.5 h-3.5 rounded-full bg-cyan-400 text-slate-950 text-[8px] flex items-center justify-center border border-white font-bold"><i class="fa-solid fa-check text-[7px]"></i></span>' : ''}
+                </div>
+                ${numIndicados > 0 ? `
+                  <span class="absolute -top-1 -right-2 bg-cyan-400 text-slate-950 font-black text-[9px] px-1.5 py-0.2 rounded-full border border-white shadow">
+                    +${numIndicados}
+                  </span>
+                ` : ''}
+              </div>
+              <div class="mt-1 px-1.5 py-0.5 rounded-md bg-slate-900/95 text-[10px] font-medium text-cyan-200 border border-slate-700 shadow whitespace-nowrap max-w-[105px] truncate">
+                ${esc(item.name.split(' ')[0])}
+              </div>
+            </div>
+          `;
+        }
+
+        const customIcon = L.divIcon({
+          className: 'onda-custom-pin',
+          html: markerHtml,
+          iconSize: [80, 50],
+          iconAnchor: [40, 20]
+        });
+
+        const marker = L.marker([item.lat, item.lng], { icon: customIcon });
+        marker.on('click', () => selectItem(item.id));
+        markersGroup.addLayer(marker);
+      });
+
+      document.getElementById('totalBadgeCount').innerText = cityMembers.length;
+    }
+
+    // Linhas de Indicação ("Quem indicou quem")
+    function renderReferralLines() {
+      linesGroup.clearLayers();
+
+      // Só desenha a linha quando as duas pontas estão visíveis (evita linhas "penduradas" no filtro/busca)
+      const visibleIds = new Set(getVisibleMembers().map(m => m.id));
+
+      membersData.forEach(target => {
+        if (!target.indicadoPorId || !visibleIds.has(target.id) || !visibleIds.has(target.indicadoPorId)) return;
+        const item = getEntity(target.indicadoPorId);
+
+        const isHighlighted = selectedId && (selectedId === item.id || selectedId === target.id);
+        const hasSelection = selectedId !== null;
+
+        let lineColor = isDarkMode ? '#38bdf8' : '#0284c7';
+        let lineOpacity = 0.65;
+        let lineWeight = 2.5;
+
+        if (hasSelection) {
+          if (isHighlighted) {
+            lineColor = '#00f2fe';
+            lineOpacity = 1;
+            lineWeight = 4;
+          } else {
+            lineOpacity = 0.12;
+            lineWeight = 1.2;
+          }
+        }
+
+        const line = L.polyline([
+          [item.lat, item.lng],
+          [target.lat, target.lng]
+        ], {
+          color: lineColor,
+          weight: lineWeight,
+          opacity: lineOpacity,
+          className: 'referral-path'
+        });
+
+        line.on('click', () => {
+          selectItem(item.id);
+          showSimpleToast(`${item.name} indicou ${target.name} para a Onda Azul!`);
+        });
+
+        linesGroup.addLayer(line);
+      });
+    }
+
+    // --- 8. DETALHAMENTO RICO / DRAWER DE PERFIL EXPANSÍVEL ---
+    function selectItem(id) {
+      selectedId = id;
+      const item = getEntity(id);
+      if (!item) return;
+
+      // Centraliza no mapa com animação
+      map.flyTo([item.lat, item.lng], Math.max(map.getZoom(), 14), {
+        animate: true,
+        duration: 0.7
+      });
+
+      // Atualiza marcadores e conexões
+      renderMarkers();
+      renderReferralLines();
+
+      // Atualiza Cabeçalho
+      const sheetAvatar = document.getElementById('sheetAvatar');
+      const sheetTitle = document.getElementById('sheetTitle');
+      const sheetRole = document.getElementById('sheetRole');
+      const sheetSubtitle = document.getElementById('sheetSubtitle');
+      const sheetBadge = document.getElementById('sheetBadge');
+      const sheetBio = document.getElementById('sheetBio');
+      const sheetOndaScore = document.getElementById('sheetOndaScore');
+
+      sheetTitle.innerText = item.name;
+      sheetRole.innerText = item.category;
+      sheetSubtitle.innerText = getPublicLocation(item);
+      sheetBio.innerText = item.roleOrBio;
+      sheetOndaScore.innerText = `Score Onda ${item.score}`;
+
+      if (item.type === 'company') {
+        sheetAvatar.innerHTML = `<i class="fa-solid fa-building text-cyan-200"></i>`;
+        sheetBadge.innerHTML = `<i class="fa-solid fa-circle-check text-[7px] mr-1"></i>Empresa Verificada`;
+        sheetBadge.className = 'text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 whitespace-nowrap';
+      } else {
+        sheetAvatar.innerHTML = `<span>${esc(item.initials)}</span>`;
+        sheetBadge.innerHTML = `<i class="fa-solid fa-user-shield text-[7px] mr-1"></i>Membro Líder`;
+        sheetBadge.className = 'text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 whitespace-nowrap';
+      }
+
+      // Serviços / Produtos
+      const tagsContainer = document.getElementById('servicesTags');
+      tagsContainer.innerHTML = '';
+      (item.services || ['Soluções Corporativas', 'Parcerias Onda']).forEach(srv => {
+        tagsContainer.innerHTML += `
+          <span class="px-2 py-0.5 rounded-lg bg-cyan-950/80 text-cyan-300 border border-cyan-800/80 text-[10px] font-medium flex items-center gap-1">
+            <i class="fa-solid fa-check text-[8px] text-cyan-400"></i>${esc(srv)}
+          </span>
+        `;
+      });
+
+      // Estado do Botão Seguir
+      updateFollowButton(item.id);
+
+      // Card Quem Indicou
+      const refBox = document.getElementById('referrerBox');
+      if (item.indicadoPorId) {
+        const parent = getEntity(item.indicadoPorId);
+        refBox.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 truncate">
+              <span class="w-6 h-6 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                ${esc(parent.initials)}
+              </span>
+              <div class="truncate">
+                <p class="text-[8px] text-slate-400 font-semibold uppercase">Trazido para a Onda por</p>
+                <p class="font-bold text-white text-xs truncate">${esc(parent.name)}</p>
+              </div>
+            </div>
+            <button onclick="selectItem(${parent.id})" class="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-semibold border border-cyan-500/30 transition flex-shrink-0">
+              Ver Perfil
+            </button>
+          </div>
+        `;
+      } else {
+        refBox.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-[10px]">
+              <i class="fa-solid fa-crown"></i>
+            </span>
+            <div>
+              <p class="text-[8px] text-amber-400 font-semibold uppercase">Membro Fundador / Pioneiro</p>
+              <p class="font-bold text-white text-xs">Originou esta ramificação da Onda Azul</p>
+            </div>
+          </div>
+        `;
+      }
+
+      // Lista de Quem este perfil indicou
+      const countEl = document.getElementById('invitedCount');
+      const listEl = document.getElementById('invitedList');
+      const indicados = getIndicados(item.id);
+      countEl.innerText = indicados.length;
+      listEl.innerHTML = '';
+
+      if (indicados.length > 0) {
+        indicados.forEach(child => {
+          listEl.innerHTML += `
+            <div onclick="selectItem(${child.id})" class="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 cursor-pointer transition">
+              <div class="flex items-center gap-2 truncate">
+                <span class="w-6 h-6 rounded-full bg-slate-800 text-cyan-300 font-bold text-[9px] flex items-center justify-center border border-cyan-500/30 flex-shrink-0">
+                  ${esc(child.initials)}
+                </span>
+                <div class="truncate">
+                  <p class="text-xs font-semibold text-white truncate">${esc(child.name)}</p>
+                  <p class="text-[9px] text-slate-400 truncate">${esc(child.category)}</p>
+                </div>
+              </div>
+              <span class="text-[9px] text-cyan-400 font-semibold px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800">Conectar</span>
+            </div>
+          `;
+        });
+      } else {
+        listEl.innerHTML = `
+          <p class="text-[10px] text-slate-400 py-1 text-center italic">Ainda não registrou novas indicações nesta cidade.</p>
+        `;
+      }
+
+      // Expande Bottom Sheet e alterna para mapa se estiver na lista
+      expandBottomSheet();
+      setViewMode('map');
+      showSimpleToast(`Perfil de ${item.name}`);
+    }
+
+    // Tela Padrão da Gaveta quando nada está selecionado
+    function showDefaultSheet() {
+      selectedId = null;
+      const city = citiesConfig.find(c => c.id === currentCityId);
+      const count = membersData.filter(m => m.cityId === currentCityId).length;
+
+      document.getElementById('sheetTitle').innerText = `Hub Onda Azul ${city ? city.name : ''}`;
+      document.getElementById('sheetRole').innerText = `Polo Regional da Onda Azul`;
+      document.getElementById('sheetSubtitle').innerText = `${count} Empresas e Líderes Conectados`;
+      document.getElementById('sheetBadge').innerHTML = `<i class="fa-solid fa-water text-[7px] mr-1"></i>Polo Ativo`;
+      document.getElementById('sheetBadge').className = 'text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 whitespace-nowrap';
+      document.getElementById('sheetAvatar').innerHTML = `<i class="fa-solid fa-water"></i>`;
+      document.getElementById('sheetBio').innerText = `A nuvem azul envolve os ecossistemas mais vibrantes de ${city ? city.name : 'sua região'}. Toque nos membros para ver produtos, serviços e conexões de indicação.`;
+      document.getElementById('sheetOndaScore').innerText = `Cobertura Alta`;
+
+      // Tags padrões
+      document.getElementById('servicesTags').innerHTML = `
+        <span class="px-2 py-0.5 rounded-lg bg-cyan-950/80 text-cyan-300 border border-cyan-800/80 text-[10px] font-medium">Ecossistema Confiável</span>
+        <span class="px-2 py-0.5 rounded-lg bg-cyan-950/80 text-cyan-300 border border-cyan-800/80 text-[10px] font-medium">Indicações Validadas</span>
+      `;
+
+      // Reset botão seguir
+      const btn = document.getElementById('btnFollow');
+      btn.className = 'px-2.5 py-1 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] flex items-center gap-1 cursor-default';
+      btn.innerHTML = `<i class="fa-solid fa-check text-[9px]"></i><span>Onda</span>`;
+
+      document.getElementById('referrerBox').innerHTML = `
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-nodes text-cyan-400 text-sm"></i>
+          <div>
+            <p class="text-[8px] text-slate-400 uppercase font-semibold">Rede de Confiança</p>
+            <p class="text-xs font-bold text-white">Toque em qualquer marcador para interagir</p>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('invitedCount').innerText = membersData.filter(m => m.cityId === currentCityId && m.indicadoPorId).length;
+      document.getElementById('invitedList').innerHTML = `
+        <p class="text-[10px] text-slate-300">Selecione uma empresa ou pessoa acima para ver produtos e serviços oferecidos.</p>
+      `;
+    }
+
+    // Ação do Botão "Seguir / Deixar de Seguir"
+    function toggleFollow(event) {
+      if (event) event.stopPropagation();
+      if (!selectedId) {
+        showSimpleToast('Selecione um perfil para seguir!');
+        return;
+      }
+
+      if (followedSet.has(selectedId)) {
+        followedSet.delete(selectedId);
+        showSimpleToast(`Você deixou de seguir este perfil`);
+      } else {
+        followedSet.add(selectedId);
+        showSimpleToast(`Você agora está seguindo! Receberá novidades e ofertas.`);
+      }
+
+      updateFollowButton(selectedId);
+      renderMarkers();
+    }
+
+    function updateFollowButton(id) {
+      const btn = document.getElementById('btnFollow');
+      const isFollowed = followedSet.has(id);
+
+      if (isFollowed) {
+        btn.className = 'px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-bold text-[10px] flex items-center gap-1 transition';
+        btn.innerHTML = `<i class="fa-solid fa-check text-[9px]"></i><span>Seguindo</span>`;
+      } else {
+        btn.className = 'px-2.5 py-1 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] flex items-center gap-1 shadow-md transition';
+        btn.innerHTML = `<i class="fa-solid fa-user-plus text-[9px]"></i><span>Seguir</span>`;
+      }
+    }
+
+    // Ação "Fazer Negócio / Comprar"
+    function handleBusinessAction() {
+      if (!selectedId) {
+        showSimpleToast('Selecione uma empresa ou pessoa primeiro.');
+        return;
+      }
+      const item = getEntity(selectedId);
+      showSimpleToast(`Canal de negócios aberto com ${item.name}!`);
+    }
+
+    function handleLocateOnMap() {
+      if (selectedId) {
+        const item = getEntity(selectedId);
+        map.flyTo([item.lat, item.lng], 15, { animate: true, duration: 0.8 });
+        collapseBottomSheet();
+      } else {
+        fitCurrentCityMarkers();
+      }
+    }
+
+    // Toggle Bottom Sheet
+    function toggleBottomSheet() {
+      if (isSheetExpanded) {
+        collapseBottomSheet();
+      } else {
+        expandBottomSheet();
+      }
+    }
+
+    function expandBottomSheet() {
+      const sheet = document.getElementById('bottomSheet');
+      const chev = document.getElementById('sheetChevron');
+      sheet.classList.remove('translate-y-[72%]');
+      sheet.classList.add('translate-y-0');
+      chev.classList.add('rotate-180');
+      isSheetExpanded = true;
+    }
+
+    function collapseBottomSheet() {
+      const sheet = document.getElementById('bottomSheet');
+      const chev = document.getElementById('sheetChevron');
+      sheet.classList.add('translate-y-[72%]');
+      sheet.classList.remove('translate-y-0');
+      chev.classList.remove('rotate-180');
+      isSheetExpanded = false;
+    }
+
+    // Enquadra os marcadores da cidade atual
+    function fitCurrentCityMarkers() {
+      const cityMembers = getVisibleMembers();
+      if (cityMembers.length === 0) return;
+      const bounds = L.latLngBounds(cityMembers.map(m => [m.lat, m.lng]));
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+    }
+
+    // --- 9. BUSCA TEXTUAL HÍBRIDA & GEOCODING ---
+    // Enquanto digita: só filtra lista, marcadores, linhas e névoa da cidade atual (o mapa não sai do lugar)
+    function handleSearch(query) {
+      searchQuery = query || '';
+      renderMarkers();
+      renderReferralLines();
+      renderListMode();
+      updateSmokePoints();
+    }
+
+    // Ao teclar Enter: cidade cadastrada → membro da cidade atual → membro de outra cidade → geocoding
+    function handleSearchEnter(query) {
+      const q = norm(query || '');
+      if (!q) return;
+
+      const matchedCity = citiesConfig.find(c =>
+        norm(c.id) === q || norm(c.name) === q || (q.length >= 3 && norm(c.name).startsWith(q))
+      );
+      if (matchedCity) {
+        switchCity(matchedCity.id);
+        return;
+      }
+
+      const matchInCurrent = membersData.find(m => m.cityId === currentCityId && memberMatches(m, q));
+      if (matchInCurrent) {
+        selectItem(matchInCurrent.id);
+        return;
+      }
+
+      const matchGlobal = membersData.find(m => memberMatches(m, q));
+      if (matchGlobal) {
+        switchCity(matchGlobal.cityId);
+        selectItem(matchGlobal.id);
+        return;
+      }
+
+      // Nada na Onda casou: tenta achar o lugar no mapa
+      geocodeAndFly(query.trim());
+    }
+
+    // Busca Externa de Cidade via Geocoding Aberto OpenStreetMap (só quando a busca não acha nada na Onda).
+    // Nominatim é adequado para protótipo; em produção, usar um serviço de geocoding próprio ou pago.
+    async function geocodeAndFly(query) {
+      if (query.length < 3) return;
+      showSimpleToast(`Pesquisando "${query}" no mapa...`);
+
+      try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Brasil')}`);
+        const data = await resp.json();
+
+        if (data && data.length > 0) {
+          const first = data[0];
+          const lat = parseFloat(first.lat);
+          const lon = parseFloat(first.lon);
+
+          // Verifica se está próximo de alguma das nossas cidades
+          let closestCity = null;
+          let minDist = Infinity;
+          citiesConfig.forEach(c => {
+            const d = Math.hypot(c.center[0] - lat, c.center[1] - lon);
+            if (d < minDist) {
+              minDist = d;
+              closestCity = c;
+            }
+          });
+
+          // Se estiver razoavelmente perto (dist < 0.6 graus), alterna para a base correspondente
+          if (minDist < 0.6 && closestCity) {
+            switchCity(closestCity.id, [lat, lon], first.display_name.split(',')[0]);
+          } else {
+            map.flyTo([lat, lon], 13);
+            showSimpleToast(`Voando para ${first.display_name.split(',')[0]}`);
+          }
+        } else {
+          showSimpleToast('Localização não encontrada.');
+        }
+      } catch (err) {
+        showSimpleToast('Não foi possível conectar ao serviço de geocoding.');
+      }
+    }
+
+    function resetSearch() {
+      clearSearchInput();
+      showDefaultSheet();
+      renderMarkers();
+      renderReferralLines();
+      renderListMode();
+      fitCurrentCityMarkers();
+    }
+
+    // --- 10. MODO MAPA VS. MODO LISTA ---
+    function setViewMode(mode) {
+      const mapContainer = document.getElementById('mapViewContainer');
+      const listContainer = document.getElementById('listViewContainer');
+      const btnMap = document.getElementById('btnViewMap');
+      const btnList = document.getElementById('btnViewList');
+
+      if (mode === 'map') {
+        mapContainer.classList.remove('hidden');
+        listContainer.classList.add('hidden');
+        btnMap.className = 'px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 flex items-center gap-1 transition';
+        btnList.className = 'px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-white flex items-center gap-1 transition';
+        setTimeout(() => {
+          map.invalidateSize();
+          handleCanvasResize();
+        }, 100);
+        startSmokeLoop();
+      } else {
+        stopSmokeLoop();
+        mapContainer.classList.add('hidden');
+        listContainer.classList.remove('hidden');
+        btnList.className = 'px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 flex items-center gap-1 transition';
+        btnMap.className = 'px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-white flex items-center gap-1 transition';
+        renderListMode();
+      }
+    }
+
+    function renderListMode() {
+      const wrapper = document.getElementById('listItemsWrapper');
+      wrapper.innerHTML = '';
+
+      const items = getVisibleMembers();
+
+      if (items.length === 0) {
+        wrapper.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Nenhum resultado encontrado nesta cidade.${searchQuery ? '<br>Aperte Enter para buscar em outras cidades.' : ''}</p>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const isComp = item.type === 'company';
+        const isFollowed = followedSet.has(item.id);
+        const numIndicados = getIndicados(item.id).length;
+        const parent = item.indicadoPorId ? getEntity(item.indicadoPorId) : null;
+
+        wrapper.innerHTML += `
+          <div onclick="selectItem(${item.id})" class="p-3 rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 cursor-pointer transition">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl ${isComp ? 'bg-gradient-to-tr from-blue-700 to-cyan-400 text-white' : 'bg-slate-800 text-cyan-300 border border-cyan-500/30'} flex items-center justify-center font-bold text-xs flex-shrink-0">
+                  ${isComp ? '<i class="fa-solid fa-building"></i>' : esc(item.initials)}
+                </div>
+                <div class="truncate">
+                  <div class="flex items-center gap-1.5">
+                    <h4 class="text-xs font-bold text-white truncate max-w-[170px]">${esc(item.name)}</h4>
+                    ${isFollowed ? '<span class="text-[8px] px-1 rounded bg-cyan-500/20 text-cyan-300 font-semibold">Seguindo</span>' : ''}
+                  </div>
+                  <p class="text-[10px] text-cyan-400 truncate">${esc(item.category)} • <span class="text-slate-400">${esc(item.region)}</span></p>
+                </div>
+              </div>
+              <span class="text-[9px] px-2 py-0.5 rounded-full ${isComp ? 'bg-cyan-500/20 text-cyan-300' : 'bg-blue-500/20 text-blue-300'} font-bold">
+                ${isComp ? 'Empresa' : 'Pessoa'}
+              </span>
+            </div>
+
+            <!-- Bio curta -->
+            <p class="mt-1.5 text-[10px] text-slate-300 line-clamp-2">${esc(item.roleOrBio)}</p>
+
+            <!-- Linhagem e Indicados no Card da Lista -->
+            <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+              <div class="text-slate-400 truncate max-w-[190px]">
+                ${parent ? `Indicado por: <strong class="text-slate-200">${esc(parent.name)}</strong>` : '<span class="text-amber-400 font-semibold"><i class="fa-solid fa-crown text-[8px] mr-1"></i>Pioneiro Raiz</span>'}
+              </div>
+              <div class="text-emerald-400 font-bold flex-shrink-0">
+                <i class="fa-solid fa-share-nodes mr-1 text-[9px]"></i>${numIndicados} indicados
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // --- 11. FILTROS ---
+    function setFilter(type) {
+      currentFilter = type;
+      const bAll = document.getElementById('btnFilterAll');
+      const bComp = document.getElementById('btnFilterComp');
+      const bPeo = document.getElementById('btnFilterPeople');
+
+      bAll.className = type === 'all' ? 'px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 transition' : 'px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-white transition';
+      bComp.className = type === 'company' ? 'px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 transition' : 'px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-cyan-400 transition';
+      bPeo.className = type === 'people' ? 'px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 transition' : 'px-2 py-0.5 rounded-lg text-[10px] font-medium text-slate-300 hover:text-blue-400 transition';
+
+      renderMarkers();
+      renderReferralLines();
+      renderListMode();
+      updateSmokePoints();
+      showSimpleToast(type === 'all' ? 'Exibindo todos' : type === 'company' ? 'Filtrando Empresas' : 'Filtrando Pessoas');
+    }
+
+    // --- 12. UTILITÁRIOS: TOAST, CLOCK E MOLDURA ---
+    let toastTimer;
+    function showSimpleToast(msg) {
+      const toast = document.getElementById('iosToast');
+      document.getElementById('toastMessage').innerText = msg;
+      toast.classList.remove('opacity-0', '-translate-y-4');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-4');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 2300);
+    }
+
+    function updateClock() {
+      const d = new Date();
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      document.getElementById('currentTime').innerText = `${h}:${m}`;
+    }
+
+    function togglePhoneFrame() {
+      const shell = document.getElementById('phoneContainer');
+      const btn = document.getElementById('frameToggleBtn');
+      if (shell.classList.contains('iphone-shell')) {
+        shell.classList.remove('iphone-shell', 'border-[3px]', 'border-slate-700/60', 'rounded-[54px]');
+        shell.classList.add('w-full', 'max-w-md', 'h-[800px]', 'rounded-2xl', 'border', 'border-slate-800');
+        btn.innerHTML = `<i class="fa-solid fa-mobile"></i><span>Ativar Moldura</span>`;
+      } else {
+        shell.classList.add('iphone-shell', 'border-[3px]', 'border-slate-700/60', 'rounded-[54px]');
+        shell.classList.remove('w-full', 'max-w-md', 'rounded-2xl', 'border', 'border-slate-800');
+        btn.innerHTML = `<i class="fa-solid fa-mobile-screen"></i><span>Moldura</span>`;
+      }
+      setTimeout(() => {
+        map.invalidateSize();
+        handleCanvasResize();
+      }, 250);
+    }
+
+    // Inicialização ao carregar a janela
+    window.onload = function() {
+      initApp();
+    };
+  </script>
+</body>
+</html>
