@@ -39,22 +39,39 @@
       z-index: 10;
     }
 
-    .leaflet-control-zoom, .leaflet-control-attribution {
+    .leaflet-control-zoom {
       display: none !important;
     }
 
-    /* Canvas procedural da Fumacinha / Nebulosa da Nuvem Azul */
-    #cloudSmokeCanvas {
+    /* Atribuição do mapa (exigida pelos termos do OpenStreetMap e da CARTO), discreta abaixo da barra de busca */
+    .leaflet-top.leaflet-right {
+      top: 158px;
+    }
+    .leaflet-control-attribution {
+      font-size: 8px !important;
+      line-height: 1.4;
+      background: rgba(15, 23, 42, 0.6) !important;
+      color: #94a3b8 !important;
+      border-radius: 6px 0 0 6px;
+    }
+    .leaflet-control-attribution a {
+      color: #67e8f9 !important;
+    }
+
+    /* Canvas procedural da Fumacinha / Nebulosa da Nuvem Azul.
+       Fica num pane do Leaflet entre os tiles e as linhas/marcadores, para não cobrir os pins. */
+    .cloud-smoke-canvas {
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
       pointer-events: none;
-      z-index: 12;
-      mix-blend-mode: screen;
-      filter: blur(12px) contrast(140%) brightness(110%);
+      filter: blur(10px) contrast(140%) brightness(110%);
       opacity: 0.85;
       transition: opacity 0.4s ease;
+    }
+    .cloud-smoke-canvas.smoke-dark {
+      mix-blend-mode: screen;
+    }
+    .cloud-smoke-canvas.smoke-light {
+      opacity: 0.6;
     }
 
     /* Linhas animadas de indicação */
@@ -216,8 +233,7 @@
       <!-- MAPA LEAFLET COM NÉVOA AZUL ORGÂNICA PROCEDURAL -->
       <div id="mapViewContainer" class="w-full h-full relative">
         <div id="map"></div>
-        <!-- Canvas que projeta a Fumacinha de Névoa / Nebulosa em sincronia com o Leaflet -->
-        <canvas id="cloudSmokeCanvas"></canvas>
+        <!-- O canvas da névoa é criado via JS dentro de um pane do Leaflet (ver setupSmokeCanvas) -->
       </div>
 
       <!-- MODO LISTA COMPLETA -->
@@ -232,7 +248,7 @@
       </div>
 
       <!-- GAVETA DE DETALHES RICA (BOTTOM SHEET EXPANSÍVEL) -->
-      <div id="bottomSheet" class="absolute bottom-16 left-0 right-0 z-30 glass-ios rounded-t-[30px] border-t border-cyan-500/40 p-3.5 transform translate-y-[72%] transition-all duration-300 flex flex-col shadow-2xl max-h-[78%]">
+      <div id="bottomSheet" class="absolute bottom-16 left-0 right-0 z-30 glass-ios rounded-t-[30px] border-t border-cyan-500/40 p-3.5 transform translate-y-[72%] transition-all duration-300 flex flex-col shadow-2xl max-h-[68%]">
         <!-- Puxador -->
         <div onclick="toggleBottomSheet()" class="w-full flex flex-col items-center cursor-pointer pb-2">
           <div class="w-10 h-1 bg-slate-500/50 rounded-full"></div>
@@ -391,7 +407,6 @@
         lng: -46.6560,
         address: 'Av. Paulista, 1070 - Bela Vista',
         indicadoPorId: null,
-        indicadosIds: [2, 101, 102],
         score: 99
       },
       {
@@ -408,7 +423,6 @@
         lng: -46.6820,
         address: 'Av. Faria Lima, 3477 - Itaim Bibi',
         indicadoPorId: 1,
-        indicadosIds: [4, 103],
         score: 96
       },
       {
@@ -425,7 +439,6 @@
         lng: -46.6930,
         address: 'Rua dos Pinheiros, 610 - Pinheiros',
         indicadoPorId: null,
-        indicadosIds: [5, 104, 105],
         score: 97
       },
       {
@@ -442,7 +455,6 @@
         lng: -46.6905,
         address: 'Rua Funchal, 200 - Vila Olímpia',
         indicadoPorId: 2,
-        indicadosIds: [106],
         score: 93
       },
       {
@@ -459,7 +471,6 @@
         lng: -46.6975,
         address: 'Av. Luís Carlos Berrini, 1200 - Brooklin',
         indicadoPorId: 3,
-        indicadosIds: [],
         score: 95
       },
       {
@@ -476,7 +487,6 @@
         lng: -46.6610,
         address: 'Al. Santos / Jardins',
         indicadoPorId: 1,
-        indicadosIds: [107],
         score: 98
       },
       {
@@ -487,13 +497,12 @@
         initials: 'BV',
         category: 'Head de Growth & Expansão',
         roleOrBio: 'Estrategista de aquisição orgânica e expansão internacional com passagens por unicórnios do ecossistema latino.',
-        services: ['Estratégia de Go-to-Market', 'Auditoria de Funil B2B', 'Paletras de Expansão'],
+        services: ['Estratégia de Go-to-Market', 'Auditoria de Funil B2B', 'Palestras de Expansão'],
         region: 'Paraíso',
         lat: -23.5645,
         lng: -46.6520,
         address: 'Rua Vergueiro, 900 - Paraíso',
         indicadoPorId: 1,
-        indicadosIds: [],
         score: 94
       },
       {
@@ -510,7 +519,6 @@
         lng: -46.6800,
         address: 'Rua Joaquim Floriano - Itaim',
         indicadoPorId: 2,
-        indicadosIds: [],
         score: 96
       },
       {
@@ -527,7 +535,6 @@
         lng: -46.6880,
         address: 'Rua Fradique Coutinho - Pinheiros',
         indicadoPorId: 3,
-        indicadosIds: [],
         score: 91
       },
       {
@@ -544,7 +551,6 @@
         lng: -46.6950,
         address: 'Rua Harmonia, 300 - Vila Madalena',
         indicadoPorId: 3,
-        indicadosIds: [],
         score: 93
       },
       {
@@ -561,7 +567,6 @@
         lng: -46.6880,
         address: 'Rua Gomes de Carvalho - Vila Olímpia',
         indicadoPorId: 4,
-        indicadosIds: [],
         score: 89
       },
       {
@@ -578,7 +583,6 @@
         lng: -46.6590,
         address: 'Rua da Consolação, 1500',
         indicadoPorId: 101,
-        indicadosIds: [],
         score: 92
       },
 
@@ -597,7 +601,6 @@
         lng: -43.1880,
         address: 'Av. Rodrigues Alves, 10 - Porto Maravilha',
         indicadoPorId: null,
-        indicadosIds: [202, 203],
         score: 98
       },
       {
@@ -614,7 +617,6 @@
         lng: -43.1840,
         address: 'Praia de Botafogo, 300 - Botafogo',
         indicadoPorId: 201,
-        indicadosIds: [204],
         score: 95
       },
       {
@@ -631,7 +633,6 @@
         lng: -43.2040,
         address: 'Rua Visconde de Pirajá - Ipanema',
         indicadoPorId: 201,
-        indicadosIds: [],
         score: 96
       },
       {
@@ -648,7 +649,6 @@
         lng: -43.2240,
         address: 'Av. Ataulfo de Paiva - Leblon',
         indicadoPorId: 202,
-        indicadosIds: [],
         score: 92
       },
 
@@ -667,7 +667,6 @@
         lng: -49.2880,
         address: 'Av. do Batel, 1550 - Batel',
         indicadoPorId: null,
-        indicadosIds: [302, 303],
         score: 97
       },
       {
@@ -684,7 +683,6 @@
         lng: -49.2680,
         address: 'Rua Cândido de Abreu - Centro Cívico',
         indicadoPorId: 301,
-        indicadosIds: [],
         score: 94
       },
       {
@@ -701,7 +699,6 @@
         lng: -49.2610,
         address: 'Rua Alberto Folloni - Juvevê',
         indicadoPorId: 301,
-        indicadosIds: [],
         score: 93
       },
 
@@ -720,7 +717,6 @@
         lng: -43.9350,
         address: 'Rua Major Lopes - São Pedro',
         indicadoPorId: null,
-        indicadosIds: [402, 403],
         score: 99
       },
       {
@@ -737,7 +733,6 @@
         lng: -43.9310,
         address: 'Praça da Savassi - Savassi',
         indicadoPorId: 401,
-        indicadosIds: [],
         score: 95
       },
       {
@@ -754,7 +749,6 @@
         lng: -43.9450,
         address: 'Rua da Bahia - Lourdes',
         indicadoPorId: 401,
-        indicadosIds: [],
         score: 97
       },
 
@@ -773,7 +767,6 @@
         lng: -48.5030,
         address: 'Rodovia SC-401, KM 4 - Tecnópolis',
         indicadoPorId: null,
-        indicadosIds: [502, 503],
         score: 98
       },
       {
@@ -790,7 +783,6 @@
         lng: -48.4680,
         address: 'Av. das Rendeiras - Lagoa da Conceição',
         indicadoPorId: 501,
-        indicadosIds: [],
         score: 96
       },
       {
@@ -807,7 +799,6 @@
         lng: -48.4980,
         address: 'Al. das Palmeiras - Jurerê',
         indicadoPorId: 501,
-        indicadosIds: [],
         score: 94
       },
 
@@ -826,7 +817,6 @@
         lng: -47.0650,
         address: 'Av. Albert Einstein - Barão Geraldo',
         indicadoPorId: null,
-        indicadosIds: [602, 603],
         score: 99
       },
       {
@@ -843,7 +833,6 @@
         lng: -47.0520,
         address: 'Rua Coronel Quirino - Cambuí',
         indicadoPorId: 601,
-        indicadosIds: [],
         score: 95
       },
       {
@@ -860,7 +849,6 @@
         lng: -47.0500,
         address: 'Av. Heitor Penteado - Taquaral',
         indicadoPorId: 601,
-        indicadosIds: [],
         score: 96
       }
     ];
@@ -875,17 +863,55 @@
     let currentFilter = 'all';
     let selectedId = null;
     let isSheetExpanded = false;
+    let searchQuery = ''; // Texto da busca: filtra lista e marcadores da cidade atual
     const followedSet = new Set(); // Guarda IDs seguidos pelo usuário
 
     // Animação da Névoa / Fumacinha Orgânica
     let smokeCanvas;
     let smokeCtx;
     let smokeParticles = [];
-    let smokeAnimFrameId;
+    let smokeAnimFrameId = null;
+    const smokeSeeds = new Map(); // Deslocamentos sorteados uma única vez por membro (névoa estável)
+    const smokeSprites = {};      // Gradientes pré-renderizados (evita criar um gradiente por partícula a cada frame)
 
     // Helper: Pega membro por id
     function getEntity(id) {
       return membersData.find(m => m.id === id);
+    }
+
+    // Quem este membro indicou (derivado de indicadoPorId, única fonte da verdade)
+    function getIndicados(id) {
+      return membersData.filter(m => m.indicadoPorId === id);
+    }
+
+    // Escapa texto antes de inserir em innerHTML (dados de membros virão de cadastro)
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // Normaliza para busca: minúsculas e sem acentos ("Débora" == "debora")
+    function norm(value) {
+      return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+
+    function memberMatches(m, query) {
+      const q = norm(query);
+      if (!q) return true;
+      return [m.name, m.category, m.region, ...(m.services || [])].some(field => norm(field).includes(q));
+    }
+
+    // Membros da cidade atual que passam no filtro de tipo e na busca
+    function getVisibleMembers() {
+      return membersData.filter(m =>
+        m.cityId === currentCityId &&
+        (currentFilter === 'all' || m.type === currentFilter) &&
+        memberMatches(m, searchQuery)
+      );
+    }
+
+    // Pessoa física mostra só o bairro; endereço completo apenas para empresas
+    function getPublicLocation(item) {
+      return item.type === 'company' ? `${item.region} • ${item.address}` : item.region;
     }
 
     // --- 4. INICIALIZAÇÃO DA APLICAÇÃO ---
@@ -894,6 +920,7 @@
       initMap();
       setupSmokeCanvas();
       startSmokeLoop();
+      showDefaultSheet();
       updateClock();
       setInterval(updateClock, 30000);
     }
@@ -915,7 +942,7 @@
             : 'bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80 hover:border-cyan-500/50'
         }`;
         btn.innerHTML = `
-          <span>${city.name}</span>
+          <span>${esc(city.name)}</span>
           <span class="text-[9px] px-1.5 py-0.2 rounded-full ${isCurrent ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-800 text-cyan-300'} font-extrabold">${count}</span>
         `;
         btn.onclick = () => switchCity(city.id);
@@ -928,9 +955,9 @@
       const currentCity = citiesConfig.find(c => c.id === currentCityId);
 
       map = L.map('map', {
-        zoomControl: false,
-        attributionControl: false
+        zoomControl: false
       }).setView(currentCity.center, currentCity.zoom);
+      map.attributionControl.setPrefix(false).setPosition('topright');
 
       // Base Cartográfica Minimalista Limpa
       setMapTiles(false);
@@ -938,9 +965,8 @@
       linesGroup = L.layerGroup().addTo(map);
       markersGroup = L.layerGroup().addTo(map);
 
-      // Eventos para recalcular a névoa ao mover/zoomar no mapa
-      map.on('move', updateSmokePoints);
-      map.on('zoom', updateSmokePoints);
+      // Eventos para reposicionar a névoa ao mover/zoomar no mapa
+      map.on('move zoom', updateSmokePoints);
       map.on('resize', handleCanvasResize);
 
       // Carrega dados da cidade atual
@@ -956,8 +982,14 @@
 
       baseTileLayer = L.tileLayer(url, {
         subdomains: 'abcd',
-        maxZoom: 19
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>'
       }).addTo(map);
+
+      if (smokeCanvas) {
+        smokeCanvas.classList.toggle('smoke-dark', dark);
+        smokeCanvas.classList.toggle('smoke-light', !dark);
+      }
     }
 
     function toggleMapTheme() {
@@ -981,6 +1013,7 @@
     function switchCity(cityId, customCoords = null, customName = null) {
       currentCityId = cityId;
       selectedId = null;
+      clearSearchInput();
 
       // Atualiza pills visuais
       citiesConfig.forEach(c => {
@@ -1019,83 +1052,107 @@
       updateSmokePoints();
     }
 
+    function clearSearchInput() {
+      searchQuery = '';
+      document.getElementById('searchInput').value = '';
+    }
+
     // --- 6. NÉVOA / FUMACINHA ORGÂNICA PROCEDURAL (CANVAS OVERLAY) ---
     function setupSmokeCanvas() {
-      smokeCanvas = document.getElementById('cloudSmokeCanvas');
+      // Pane próprio entre os tiles (200) e as linhas (400) / marcadores (600)
+      const pane = map.createPane('nevoaPane');
+      pane.style.zIndex = 350;
+      pane.style.pointerEvents = 'none';
+
+      smokeCanvas = document.createElement('canvas');
+      smokeCanvas.className = `cloud-smoke-canvas ${isDarkMode ? 'smoke-dark' : 'smoke-light'}`;
+      pane.appendChild(smokeCanvas);
       smokeCtx = smokeCanvas.getContext('2d');
+
+      smokeSprites.cyan = createSmokeSprite([[0, 'rgba(0, 242, 254, 0.95)'], [0.45, 'rgba(14, 165, 233, 0.5)'], [1, 'rgba(2, 132, 199, 0)']]);
+      smokeSprites.deepBlue = createSmokeSprite([[0, 'rgba(56, 189, 248, 0.8)'], [0.5, 'rgba(3, 105, 161, 0.4)'], [1, 'rgba(15, 23, 42, 0)']]);
+
       handleCanvasResize();
-      window.addEventListener('resize', handleCanvasResize);
+    }
+
+    function createSmokeSprite(stops) {
+      const size = 128;
+      const sprite = document.createElement('canvas');
+      sprite.width = sprite.height = size;
+      const ctx = sprite.getContext('2d');
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      stops.forEach(([offset, color]) => grad.addColorStop(offset, color));
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      return sprite;
     }
 
     function handleCanvasResize() {
-      if (!smokeCanvas) return;
-      const rect = smokeCanvas.getBoundingClientRect();
-      smokeCanvas.width = rect.width;
-      smokeCanvas.height = rect.height;
+      if (!smokeCanvas || !map) return;
+      const size = map.getSize();
+      smokeCanvas.width = size.x;
+      smokeCanvas.height = size.y;
       updateSmokePoints();
     }
 
-    // Gera centenas de pontos de fumaça ao redor dos membros da cidade
-    function updateSmokePoints() {
-      if (!map || !smokeCanvas) return;
-
-      const cityMembers = membersData.filter(m => m.cityId === currentCityId);
-      smokeParticles = [];
-
-      cityMembers.forEach(item => {
-        const point = map.latLngToContainerPoint([item.lat, item.lng]);
-
-        // Cria clusters de nuvem/fumacinha orgânica ao redor de cada ponto
+    // Sorteia os "puffs" de cada membro uma única vez, para a névoa não pular ao mover o mapa
+    function getSmokeSeeds(item) {
+      if (!smokeSeeds.has(item.id)) {
         const puffs = item.type === 'company' ? 6 : 4;
+        const seeds = [];
         for (let i = 0; i < puffs; i++) {
-          const angle = (Math.PI * 2 / puffs) * i + Math.random() * 0.5;
-          const dist = 15 + Math.random() * 55;
-          smokeParticles.push({
-            baseX: point.x + Math.cos(angle) * dist,
-            baseY: point.y + Math.sin(angle) * dist,
-            x: 0,
-            y: 0,
+          seeds.push({
+            angle: (Math.PI * 2 / puffs) * i + Math.random() * 0.5,
+            dist: 15 + Math.random() * 55,
             radius: 45 + Math.random() * 60,
             alpha: 0.28 + Math.random() * 0.25,
-            speed: 0.0015 + Math.random() * 0.002,
             phase: Math.random() * Math.PI * 2,
             colorVariant: Math.random() > 0.4 ? 'cyan' : 'deepBlue'
           });
         }
+        smokeSeeds.set(item.id, seeds);
+      }
+      return smokeSeeds.get(item.id);
+    }
+
+    // Reprojeta os puffs dos membros visíveis para a posição atual do mapa
+    function updateSmokePoints() {
+      if (!map || !smokeCanvas) return;
+
+      // O pane acompanha o arrasto do mapa; o canvas é mantido alinhado ao canto da tela
+      L.DomUtil.setPosition(smokeCanvas, map.containerPointToLayerPoint([0, 0]));
+
+      smokeParticles = [];
+      getVisibleMembers().forEach(item => {
+        const point = map.latLngToContainerPoint([item.lat, item.lng]);
+        getSmokeSeeds(item).forEach(seed => {
+          smokeParticles.push({
+            ...seed,
+            baseX: point.x + Math.cos(seed.angle) * seed.dist,
+            baseY: point.y + Math.sin(seed.angle) * seed.dist
+          });
+        });
       });
     }
 
-    // Loop de Animação Suave da Fumacinha
+    // Loop de Animação Suave da Fumacinha (pausado no modo lista)
+    let smokeTime = 0;
     function startSmokeLoop() {
-      let t = 0;
+      if (smokeAnimFrameId !== null || !smokeCtx) return;
 
       function renderFrame() {
-        t += 0.02;
+        smokeTime += 0.02;
+        const t = smokeTime;
         smokeCtx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
 
         smokeParticles.forEach(p => {
           // Movimento ondulatório fluido suave
-          p.x = p.baseX + Math.sin(t * 0.8 + p.phase) * 12;
-          p.y = p.baseY + Math.cos(t * 0.6 + p.phase) * 10;
-          const currentAlpha = p.alpha * (0.8 + 0.2 * Math.sin(t * 1.2 + p.phase));
-
-          // Gradiente radial orgânico simulando fumaça
-          const grad = smokeCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
-          if (p.colorVariant === 'cyan') {
-            grad.addColorStop(0, `rgba(0, 242, 254, ${currentAlpha * 0.95})`);
-            grad.addColorStop(0.45, `rgba(14, 165, 233, ${currentAlpha * 0.5})`);
-            grad.addColorStop(1, 'rgba(2, 132, 199, 0)');
-          } else {
-            grad.addColorStop(0, `rgba(56, 189, 248, ${currentAlpha * 0.8})`);
-            grad.addColorStop(0.5, `rgba(3, 105, 161, ${currentAlpha * 0.4})`);
-            grad.addColorStop(1, 'rgba(15, 23, 42, 0)');
-          }
-
-          smokeCtx.beginPath();
-          smokeCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-          smokeCtx.fillStyle = grad;
-          smokeCtx.fill();
+          const x = p.baseX + Math.sin(t * 0.8 + p.phase) * 12;
+          const y = p.baseY + Math.cos(t * 0.6 + p.phase) * 10;
+          smokeCtx.globalAlpha = p.alpha * (0.8 + 0.2 * Math.sin(t * 1.2 + p.phase));
+          smokeCtx.drawImage(smokeSprites[p.colorVariant], x - p.radius, y - p.radius, p.radius * 2, p.radius * 2);
         });
+        smokeCtx.globalAlpha = 1;
 
         smokeAnimFrameId = requestAnimationFrame(renderFrame);
       }
@@ -1103,27 +1160,30 @@
       renderFrame();
     }
 
+    function stopSmokeLoop() {
+      if (smokeAnimFrameId !== null) {
+        cancelAnimationFrame(smokeAnimFrameId);
+        smokeAnimFrameId = null;
+      }
+    }
+
     // --- 7. MARCADORES E REDE DE INDICAÇÕES VISUAL ---
     function renderMarkers() {
       markersGroup.clearLayers();
 
-      const cityMembers = membersData.filter(m => {
-        const matchesCity = m.cityId === currentCityId;
-        const matchesFilter = currentFilter === 'all' || m.type === currentFilter;
-        return matchesCity && matchesFilter;
-      });
+      const cityMembers = getVisibleMembers();
 
       cityMembers.forEach(item => {
         const isSelected = selectedId === item.id;
         const isComp = item.type === 'company';
         const isFollowed = followedSet.has(item.id);
-        const numIndicados = item.indicadosIds.length;
+        const numIndicados = getIndicados(item.id).length;
 
         let markerHtml = '';
 
         if (isComp) {
           markerHtml = `
-            <div class="flex flex-col items-center cursor-pointer transition-all duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}" onclick="selectItem(${item.id})">
+            <div class="flex flex-col items-center cursor-pointer transition-all duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
               <div class="relative">
                 ${isSelected ? '<div class="absolute -inset-2.5 bg-cyan-400 rounded-2xl blur-md animate-pulse opacity-95"></div>' : ''}
                 <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-sky-600 to-cyan-400 border-2 border-white shadow-xl flex items-center justify-center text-white text-sm relative">
@@ -1137,17 +1197,17 @@
                 ` : ''}
               </div>
               <div class="mt-1 px-1.5 py-0.5 rounded-md bg-slate-950/95 text-[10px] font-bold text-white border border-cyan-500/50 shadow whitespace-nowrap max-w-[105px] truncate">
-                ${item.name.split(' ')[0]}
+                ${esc(item.name.split(' ')[0])}
               </div>
             </div>
           `;
         } else {
           markerHtml = `
-            <div class="flex flex-col items-center cursor-pointer transition-all duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}" onclick="selectItem(${item.id})">
+            <div class="flex flex-col items-center cursor-pointer transition-all duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
               <div class="relative">
                 ${isSelected ? '<div class="absolute -inset-2.5 bg-sky-400 rounded-full blur-md animate-pulse opacity-95"></div>' : ''}
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-800 border-2 border-white shadow-lg flex items-center justify-center text-white font-black text-[11px] tracking-tight relative">
-                  ${item.initials}
+                  ${esc(item.initials)}
                   ${isFollowed ? '<span class="absolute -bottom-1 -left-1 w-3.5 h-3.5 rounded-full bg-cyan-400 text-slate-950 text-[8px] flex items-center justify-center border border-white font-bold"><i class="fa-solid fa-check text-[7px]"></i></span>' : ''}
                 </div>
                 ${numIndicados > 0 ? `
@@ -1157,7 +1217,7 @@
                 ` : ''}
               </div>
               <div class="mt-1 px-1.5 py-0.5 rounded-md bg-slate-900/95 text-[10px] font-medium text-cyan-200 border border-slate-700 shadow whitespace-nowrap max-w-[105px] truncate">
-                ${item.name.split(' ')[0]}
+                ${esc(item.name.split(' ')[0])}
               </div>
             </div>
           `;
@@ -1182,50 +1242,47 @@
     function renderReferralLines() {
       linesGroup.clearLayers();
 
-      const cityMembers = membersData.filter(m => m.cityId === currentCityId);
+      // Só desenha a linha quando as duas pontas estão visíveis (evita linhas "penduradas" no filtro/busca)
+      const visibleIds = new Set(getVisibleMembers().map(m => m.id));
 
-      cityMembers.forEach(item => {
-        if (!item.indicadosIds || item.indicadosIds.length === 0) return;
+      membersData.forEach(target => {
+        if (!target.indicadoPorId || !visibleIds.has(target.id) || !visibleIds.has(target.indicadoPorId)) return;
+        const item = getEntity(target.indicadoPorId);
 
-        item.indicadosIds.forEach(targetId => {
-          const target = getEntity(targetId);
-          if (!target || target.cityId !== currentCityId) return;
+        const isHighlighted = selectedId && (selectedId === item.id || selectedId === target.id);
+        const hasSelection = selectedId !== null;
 
-          const isHighlighted = selectedId && (selectedId === item.id || selectedId === target.id);
-          const hasSelection = selectedId !== null;
+        let lineColor = isDarkMode ? '#38bdf8' : '#0284c7';
+        let lineOpacity = 0.65;
+        let lineWeight = 2.5;
 
-          let lineColor = isDarkMode ? '#38bdf8' : '#0284c7';
-          let lineOpacity = 0.65;
-          let lineWeight = 2.5;
-
-          if (hasSelection) {
-            if (isHighlighted) {
-              lineColor = '#00f2fe';
-              lineOpacity = 1;
-              lineWeight = 4;
-            } else {
-              lineOpacity = 0.12;
-              lineWeight = 1.2;
-            }
+        if (hasSelection) {
+          if (isHighlighted) {
+            lineColor = '#00f2fe';
+            lineOpacity = 1;
+            lineWeight = 4;
+          } else {
+            lineOpacity = 0.12;
+            lineWeight = 1.2;
           }
+        }
 
-          const line = L.polyline([
-            [item.lat, item.lng],
-            [target.lat, target.lng]
-          ], {
-            color: lineColor,
-            weight: lineWeight,
-            opacity: lineOpacity,
-            className: 'referral-path'
-          });
-
-          line.on('click', () => {
-            selectItem(item.id);
-            showSimpleToast(`${item.name} indicou ${target.name} para a Onda Azul!`);
-          });
-
-          linesGroup.addLayer(line);
+        const line = L.polyline([
+          [item.lat, item.lng],
+          [target.lat, target.lng]
+        ], {
+          color: lineColor,
+          weight: lineWeight,
+          opacity: lineOpacity,
+          className: 'referral-path'
         });
+
+        line.on('click', () => {
+          selectItem(item.id);
+          showSimpleToast(`${item.name} indicou ${target.name} para a Onda Azul!`);
+        });
+
+        linesGroup.addLayer(line);
       });
     }
 
@@ -1256,7 +1313,7 @@
 
       sheetTitle.innerText = item.name;
       sheetRole.innerText = item.category;
-      sheetSubtitle.innerText = `${item.region} • ${item.address}`;
+      sheetSubtitle.innerText = getPublicLocation(item);
       sheetBio.innerText = item.roleOrBio;
       sheetOndaScore.innerText = `Score Onda ${item.score}`;
 
@@ -1265,7 +1322,7 @@
         sheetBadge.innerHTML = `<i class="fa-solid fa-circle-check text-[7px] mr-1"></i>Empresa Verificada`;
         sheetBadge.className = 'text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 whitespace-nowrap';
       } else {
-        sheetAvatar.innerHTML = `<span>${item.initials}</span>`;
+        sheetAvatar.innerHTML = `<span>${esc(item.initials)}</span>`;
         sheetBadge.innerHTML = `<i class="fa-solid fa-user-shield text-[7px] mr-1"></i>Membro Líder`;
         sheetBadge.className = 'text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 whitespace-nowrap';
       }
@@ -1276,7 +1333,7 @@
       (item.services || ['Soluções Corporativas', 'Parcerias Onda']).forEach(srv => {
         tagsContainer.innerHTML += `
           <span class="px-2 py-0.5 rounded-lg bg-cyan-950/80 text-cyan-300 border border-cyan-800/80 text-[10px] font-medium flex items-center gap-1">
-            <i class="fa-solid fa-check text-[8px] text-cyan-400"></i>${srv}
+            <i class="fa-solid fa-check text-[8px] text-cyan-400"></i>${esc(srv)}
           </span>
         `;
       });
@@ -1292,11 +1349,11 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 truncate">
               <span class="w-6 h-6 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                ${parent.initials}
+                ${esc(parent.initials)}
               </span>
               <div class="truncate">
                 <p class="text-[8px] text-slate-400 font-semibold uppercase">Trazido para a Onda por</p>
-                <p class="font-bold text-white text-xs truncate">${parent.name}</p>
+                <p class="font-bold text-white text-xs truncate">${esc(parent.name)}</p>
               </div>
             </div>
             <button onclick="selectItem(${parent.id})" class="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-semibold border border-cyan-500/30 transition flex-shrink-0">
@@ -1321,22 +1378,21 @@
       // Lista de Quem este perfil indicou
       const countEl = document.getElementById('invitedCount');
       const listEl = document.getElementById('invitedList');
-      countEl.innerText = item.indicadosIds.length;
+      const indicados = getIndicados(item.id);
+      countEl.innerText = indicados.length;
       listEl.innerHTML = '';
 
-      if (item.indicadosIds.length > 0) {
-        item.indicadosIds.forEach(cId => {
-          const child = getEntity(cId);
-          if (!child) return;
+      if (indicados.length > 0) {
+        indicados.forEach(child => {
           listEl.innerHTML += `
             <div onclick="selectItem(${child.id})" class="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 cursor-pointer transition">
               <div class="flex items-center gap-2 truncate">
                 <span class="w-6 h-6 rounded-full bg-slate-800 text-cyan-300 font-bold text-[9px] flex items-center justify-center border border-cyan-500/30 flex-shrink-0">
-                  ${child.initials}
+                  ${esc(child.initials)}
                 </span>
                 <div class="truncate">
-                  <p class="text-xs font-semibold text-white truncate">${child.name}</p>
-                  <p class="text-[9px] text-slate-400 truncate">${child.category}</p>
+                  <p class="text-xs font-semibold text-white truncate">${esc(child.name)}</p>
+                  <p class="text-[9px] text-slate-400 truncate">${esc(child.category)}</p>
                 </div>
               </div>
               <span class="text-[9px] text-cyan-400 font-semibold px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800">Conectar</span>
@@ -1391,7 +1447,7 @@
         </div>
       `;
 
-      document.getElementById('invitedCount').innerText = count;
+      document.getElementById('invitedCount').innerText = membersData.filter(m => m.cityId === currentCityId && m.indicadoPorId).length;
       document.getElementById('invitedList').innerHTML = `
         <p class="text-[10px] text-slate-300">Selecione uma empresa ou pessoa acima para ver produtos e serviços oferecidos.</p>
       `;
@@ -1479,63 +1535,56 @@
 
     // Enquadra os marcadores da cidade atual
     function fitCurrentCityMarkers() {
-      const cityMembers = membersData.filter(m => m.cityId === currentCityId);
+      const cityMembers = getVisibleMembers();
       if (cityMembers.length === 0) return;
       const bounds = L.latLngBounds(cityMembers.map(m => [m.lat, m.lng]));
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
     }
 
     // --- 9. BUSCA TEXTUAL HÍBRIDA & GEOCODING ---
+    // Enquanto digita: só filtra lista, marcadores, linhas e névoa da cidade atual (o mapa não sai do lugar)
     function handleSearch(query) {
-      if (!query || query.trim() === '') {
-        renderListMode();
-        return;
-      }
+      searchQuery = query || '';
+      renderMarkers();
+      renderReferralLines();
+      renderListMode();
+      updateSmokePoints();
+    }
 
-      renderListMode(query);
+    // Ao teclar Enter: cidade cadastrada → membro da cidade atual → membro de outra cidade → geocoding
+    function handleSearchEnter(query) {
+      const q = norm(query || '');
+      if (!q) return;
 
-      // Se bater com o nome de uma cidade cadastrada, alterna direto
-      const normalized = query.toLowerCase().trim();
       const matchedCity = citiesConfig.find(c =>
-        c.name.toLowerCase().includes(normalized) ||
-        c.id.toLowerCase() === normalized
+        norm(c.id) === q || norm(c.name) === q || (q.length >= 3 && norm(c.name).startsWith(q))
       );
-
-      if (matchedCity && matchedCity.id !== currentCityId) {
+      if (matchedCity) {
         switchCity(matchedCity.id);
         return;
       }
 
-      // Procura primeiro nos membros da cidade atual
-      const matchInCurrent = membersData.find(m =>
-        m.cityId === currentCityId && (
-          m.name.toLowerCase().includes(normalized) ||
-          m.category.toLowerCase().includes(normalized) ||
-          (m.services && m.services.some(s => s.toLowerCase().includes(normalized)))
-        )
-      );
-
+      const matchInCurrent = membersData.find(m => m.cityId === currentCityId && memberMatches(m, q));
       if (matchInCurrent) {
         selectItem(matchInCurrent.id);
         return;
       }
 
-      // Procura nos membros de outras cidades
-      const matchGlobal = membersData.find(m =>
-        m.name.toLowerCase().includes(normalized) ||
-        m.category.toLowerCase().includes(normalized) ||
-        (m.services && m.services.some(s => s.toLowerCase().includes(normalized)))
-      );
-
+      const matchGlobal = membersData.find(m => memberMatches(m, q));
       if (matchGlobal) {
         switchCity(matchGlobal.cityId);
-        setTimeout(() => selectItem(matchGlobal.id), 300);
+        selectItem(matchGlobal.id);
+        return;
       }
+
+      // Nada na Onda casou: tenta achar o lugar no mapa
+      geocodeAndFly(query.trim());
     }
 
-    // Busca Externa de Cidade via Geocoding Aberto OpenStreetMap ao Teclar Enter
-    async function handleSearchEnter(query) {
-      if (!query || query.trim().length < 3) return;
+    // Busca Externa de Cidade via Geocoding Aberto OpenStreetMap (só quando a busca não acha nada na Onda).
+    // Nominatim é adequado para protótipo; em produção, usar um serviço de geocoding próprio ou pago.
+    async function geocodeAndFly(query) {
+      if (query.length < 3) return;
       showSimpleToast(`Pesquisando "${query}" no mapa...`);
 
       try {
@@ -1574,7 +1623,7 @@
     }
 
     function resetSearch() {
-      document.getElementById('searchInput').value = '';
+      clearSearchInput();
       showDefaultSheet();
       renderMarkers();
       renderReferralLines();
@@ -1598,7 +1647,9 @@
           map.invalidateSize();
           handleCanvasResize();
         }, 100);
+        startSmokeLoop();
       } else {
+        stopSmokeLoop();
         mapContainer.classList.add('hidden');
         listContainer.classList.remove('hidden');
         btnList.className = 'px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500 text-slate-950 flex items-center gap-1 transition';
@@ -1607,33 +1658,21 @@
       }
     }
 
-    function renderListMode(searchQuery = '') {
+    function renderListMode() {
       const wrapper = document.getElementById('listItemsWrapper');
       wrapper.innerHTML = '';
 
-      let items = membersData.filter(m => m.cityId === currentCityId);
-
-      if (currentFilter !== 'all') {
-        items = items.filter(i => i.type === currentFilter);
-      }
-      if (searchQuery) {
-        items = items.filter(i =>
-          i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          i.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          i.region.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (i.services && i.services.some(s => s.toLowerCase().includes(searchQuery.toLowerCase())))
-        );
-      }
+      const items = getVisibleMembers();
 
       if (items.length === 0) {
-        wrapper.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Nenhum resultado encontrado nesta cidade.</p>`;
+        wrapper.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Nenhum resultado encontrado nesta cidade.${searchQuery ? '<br>Aperte Enter para buscar em outras cidades.' : ''}</p>`;
         return;
       }
 
       items.forEach(item => {
         const isComp = item.type === 'company';
         const isFollowed = followedSet.has(item.id);
-        const numIndicados = item.indicadosIds.length;
+        const numIndicados = getIndicados(item.id).length;
         const parent = item.indicadoPorId ? getEntity(item.indicadoPorId) : null;
 
         wrapper.innerHTML += `
@@ -1641,14 +1680,14 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5">
                 <div class="w-9 h-9 rounded-xl ${isComp ? 'bg-gradient-to-tr from-blue-700 to-cyan-400 text-white' : 'bg-slate-800 text-cyan-300 border border-cyan-500/30'} flex items-center justify-center font-bold text-xs flex-shrink-0">
-                  ${isComp ? '<i class="fa-solid fa-building"></i>' : item.initials}
+                  ${isComp ? '<i class="fa-solid fa-building"></i>' : esc(item.initials)}
                 </div>
                 <div class="truncate">
                   <div class="flex items-center gap-1.5">
-                    <h4 class="text-xs font-bold text-white truncate max-w-[170px]">${item.name}</h4>
+                    <h4 class="text-xs font-bold text-white truncate max-w-[170px]">${esc(item.name)}</h4>
                     ${isFollowed ? '<span class="text-[8px] px-1 rounded bg-cyan-500/20 text-cyan-300 font-semibold">Seguindo</span>' : ''}
                   </div>
-                  <p class="text-[10px] text-cyan-400 truncate">${item.category} • <span class="text-slate-400">${item.region}</span></p>
+                  <p class="text-[10px] text-cyan-400 truncate">${esc(item.category)} • <span class="text-slate-400">${esc(item.region)}</span></p>
                 </div>
               </div>
               <span class="text-[9px] px-2 py-0.5 rounded-full ${isComp ? 'bg-cyan-500/20 text-cyan-300' : 'bg-blue-500/20 text-blue-300'} font-bold">
@@ -1657,12 +1696,12 @@
             </div>
 
             <!-- Bio curta -->
-            <p class="mt-1.5 text-[10px] text-slate-300 line-clamp-2">${item.roleOrBio}</p>
+            <p class="mt-1.5 text-[10px] text-slate-300 line-clamp-2">${esc(item.roleOrBio)}</p>
 
             <!-- Linhagem e Indicados no Card da Lista -->
             <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
               <div class="text-slate-400 truncate max-w-[190px]">
-                ${parent ? `Indicado por: <strong class="text-slate-200">${parent.name}</strong>` : '<span class="text-amber-400 font-semibold"><i class="fa-solid fa-crown text-[8px] mr-1"></i>Pioneiro Raiz</span>'}
+                ${parent ? `Indicado por: <strong class="text-slate-200">${esc(parent.name)}</strong>` : '<span class="text-amber-400 font-semibold"><i class="fa-solid fa-crown text-[8px] mr-1"></i>Pioneiro Raiz</span>'}
               </div>
               <div class="text-emerald-400 font-bold flex-shrink-0">
                 <i class="fa-solid fa-share-nodes mr-1 text-[9px]"></i>${numIndicados} indicados
